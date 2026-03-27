@@ -15,7 +15,7 @@ public interface InvoiceService {
     InvoiceResponse updateStatus(Long id, String status);
 
     Page<InvoiceResponse> findAll(String search, String status, Long customerId, LocalDate startDate, LocalDate endDate,
-            BigDecimal minAmount, Pageable pageable);
+            BigDecimal minAmount, String type, Pageable pageable);
 
     void delete(Long id);
 }

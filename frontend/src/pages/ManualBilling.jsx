@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react'
-import { 
-  ArrowLeft, Plus, Trash2, Search, IndianRupee, 
-  Building2, User, Box, Save, Download, CheckCircle2, 
+import {
+  ArrowLeft, Plus, Trash2, Search, IndianRupee,
+  Building2, User, Box, Save, Download, CheckCircle2,
   Loader2, Calculator, Info, FileText,
   ChevronLeft, ChevronRight, ShoppingCart
 } from 'lucide-react'
@@ -420,42 +420,34 @@ const ManualBilling = () => {
 
             <div className="space-y-4 mb-8">
               <div className="flex justify-between text-sm text-slate-500">
-                <span className="font-bold uppercase tracking-widest text-[10px]">Items</span>
+                <span className="font uppercase tracking-widest text-[13px]">Items</span>
                 <span className="text-white font-black">{items.length}</span>
               </div>
               <div className="flex justify-between text-sm text-slate-500">
-                <span className="font-bold uppercase tracking-widest text-[10px]">Base Value</span>
+                <span className="font uppercase tracking-widest text-[13px]">Base Value</span>
                 <span className="text-slate-300 font-bold">₹{subtotal.toFixed(2)}</span>
               </div>
               <div className="flex justify-between text-sm text-slate-500">
-                <span className="font-bold uppercase tracking-widest text-[10px]">Tax Charged</span>
+                <span className="font uppercase tracking-widest text-[13px]">Tax Charged</span>
                 <span className="text-emerald-500/80 font-bold">₹{totalTax.toFixed(2)}</span>
               </div>
-              <div className="h-px bg-slate-800 my-4" />
-              <div className="flex justify-between bg-slate-950 p-4 rounded-xl border border-slate-800 shadow-inner">
-                <span className="text-[13px] text-slate-500 font-black uppercase tracking-widest mb-1">Total Payable</span>
-                <span className="text-xl font-black text-white tracking-tighter italic">₹{finalTotal.toFixed(2)}</span>
+
+              <div className="flex justify-between text-slate-500">
+                <span className="text-[13px] font-bold uppercase tracking-widest mb-1">Total Payable</span>
+                <span className="text-xl font-bold text-white tracking-tighter">₹{finalTotal.toFixed(2)}</span>
               </div>
-            </div>
 
-            <Button
-              size="lg"
-              className={`w-full py-5 rounded-2xl font-black text-xs uppercase tracking-[0.2em] transition-all duration-300 ${isSubmitting || items.length === 0 || (!selectedCustomer && !customerSearch) ? 'bg-slate-800 text-slate-600' : 'bg-cyan-500 hover:bg-cyan-400 text-slate-950 shadow-[0_10px_40px_rgba(6,182,212,0.3)]'}`}
-              icon={isSubmitting ? Loader2 : Save}
-              disabled={isSubmitting || items.length === 0 || (!selectedCustomer && !customerSearch)}
-              onClick={handleCreateInvoice}
-            >
-              {isSubmitting ? 'PROCESSING' : 'PLACE ORDER'}
-            </Button>
-          </div>
 
-          <div className="p-6 rounded-[2rem] bg-amber-500/5 border border-amber-500/10 flex items-start gap-4">
-            <div className="p-2 rounded-lg bg-amber-500/10 text-amber-500">
-              <Info size={16} />
+              <Button
+                size="lg"
+                className={`w-full py-5 rounded-2xl font-black text-xs uppercase tracking-[0.2em] transition-all duration-300 ${isSubmitting || items.length === 0 || (!selectedCustomer && !customerSearch) ? 'bg-slate-800 text-slate-600' : 'bg-cyan-500 hover:bg-cyan-400 text-slate-950 shadow-[0_10px_40px_rgba(6,182,212,0.3)]'}`}
+                icon={isSubmitting ? Loader2 : Save}
+                disabled={isSubmitting || items.length === 0 || (!selectedCustomer && !customerSearch)}
+                onClick={handleCreateInvoice}
+              >
+                {isSubmitting ? 'PROCESSING' : 'PLACE ORDER'}
+              </Button>
             </div>
-            <p className="text-[10px] text-amber-500/70 font-bold leading-relaxed uppercase tracking-tighter">
-              B2B transactions require valid Tax IDs for GST credit eligibility. Individual consumer bills are marked N/A.
-            </p>
           </div>
         </div>
       </div>

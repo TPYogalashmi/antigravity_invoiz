@@ -22,18 +22,21 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
         Page<Invoice> findByCustomerId(Long customerId, Pageable pageable);
 
         @Query("""
-                                                            SELECT i FROM Invoice i
-                                                            LEFT JOIN i.customer c
-                        WHERE (:search IS NULL OR
-                               LOWER(i.invoiceNumber) LIKE :search OR
-                               LOWER(c.name) LIKE :search OR
-                               LOWER(c.company) LIKE :search)
-                        AND (:status IS NULL OR i.status = :status)
-                        AND (:customerId IS NULL OR c.id = :customerId)
-                        AND (:startDate IS NULL OR i.issueDate >= :startDate)
-                        AND (:endDate   IS NULL OR i.issueDate <= :endDate)
-            AND (:minAmount IS NULL OR i.finalAmount >= :minAmount)
-            """)
+               SELECT i FROM Invoice i
+               LEFT JOIN i.customer c
+               WHERE (:search IS NULL OR
+                      LOWER(i.invoiceNumber) LIKE :search OR
+                      LOWER(c.name) LIKE :search OR
+                      LOWER(c.company) LIKE :search)
+               AND (:status IS NULL OR i.status = :status)
+               AND (:customerId IS NULL OR c.id = :customerId)
+               AND (:startDate IS NULL OR i.issueDate >= :startDate)
+               AND (:endDate IS NULL OR i.issueDate <= :endDate)
+               AND (:minAmount IS NULL OR i.finalAmount >= :minAmount)
+               AND (:type IS NULL OR 
+                    (:type = 'B2B' AND c.taxId IS NOT NULL) OR 
+                    (:type = 'B2C' AND c.taxId IS NULL))
+               """)
         Page<Invoice> findByFilters(
                         @Param("search") String search,
                         @Param("status") Invoice.Status status,
@@ -41,6 +44,7 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
                         @Param("startDate") LocalDate startDate,
                         @Param("endDate") LocalDate endDate,
                         @Param("minAmount") BigDecimal minAmount,
+                        @Param("type") String type,
                         Pageable pageable);
 
         @Query("SELECT COALESCE(SUM(i.finalAmount),0) FROM Invoice i WHERE i.status = 'PAID'")

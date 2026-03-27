@@ -9,7 +9,8 @@ import {
 import Button from '../components/ui/Button'
 import { backendClient } from '../api/axios'
 import toast from 'react-hot-toast'
-import { InvoicePreview, generateInvoicePDF } from '../utils/InvoiceUtils'
+import jsPDF from 'jspdf'
+import autoTable from 'jspdf-autotable'
 import VoiceBilling from './VoiceBilling'
 
 const STATUS_CONFIG = {
@@ -139,6 +140,118 @@ export default function Invoices() {
       toast.error('Failed to update status')
     }
   }
+
+  const downloadPDF = (invoice) => {
+    if (!invoice) return;
+
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.width;
+    const leftCollX = 14;
+    const rightCollX = 130;
+    const formattedDate = new Date(invoice.issueDate || Date.now()).toLocaleDateString('en-IN', { day: '2-digit', month: '2-digit', year: 'numeric' }).replace(/\//g, '-');
+
+    doc.setFontSize(18);
+    doc.setFont("helvetica", "bold");
+    doc.text("TAX INVOICE (GST)", pageWidth / 2, 20, { align: "center" });
+
+    doc.setDrawColor(0, 0, 0);
+    doc.setLineWidth(0.5);
+    doc.line(10, 25, pageWidth - 10, 25);
+
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "bold");
+    doc.text("Seller Details:", leftCollX, 38);
+    doc.setFont("helvetica", "normal");
+    doc.text("Business Name : INVOIZ MART", leftCollX, 44);
+    doc.text("GSTIN         : 33ABCDE1234F1Z5", leftCollX, 49);
+    doc.text("Address       : Chennai, Tamil Nadu", leftCollX, 54);
+    doc.text("Phone         : +91-9876543210", leftCollX, 59);
+
+    const sectionHeaderY = 72;
+    const sectionDataY = 78;
+    doc.setFont("helvetica", "bold");
+    doc.text("Bill To:", leftCollX, sectionHeaderY);
+    doc.text("Invoice Details:", rightCollX, sectionHeaderY);
+    doc.setFont("helvetica", "normal");
+    doc.text(`Customer Name : ${invoice.customer?.name || 'Walk-in Customer'}`, leftCollX, sectionDataY);
+    doc.text("Customer GSTIN: N/A", leftCollX, sectionDataY + 5);
+    doc.text(`Invoice No    : ${invoice.invoiceNumber}`, rightCollX, sectionDataY);
+    doc.text(`Invoice Date  : ${formattedDate}`, rightCollX, sectionDataY + 5);
+
+    const tableData = invoice.items.map((item, index) => [
+      index + 1,
+      item.description,
+      item.quantity,
+      item.unit || '1PC',
+      `Rs.${Number(item.price || item.unitPrice).toFixed(2)}`,
+      `${item.gstPercentage || 0}%`,
+      `Rs.${Number(item.total).toFixed(2)}`
+    ]);
+
+    autoTable(doc, {
+      startY: 90,
+      head: [['No', 'Item Name', 'Qty', 'Unit', 'Rate', 'GST', 'Amount']],
+      body: tableData,
+      theme: 'plain',
+      tableLineColor: [200, 200, 200],
+      tableLineWidth: 0.2,
+      headStyles: { fillColor: null, textColor: [0, 0, 0], halign: 'center', fontStyle: 'bold', fontSize: 10 },
+      styles: { fontSize: 9, fillColor: [255, 255, 255], cellPadding: 3, lineWidth: 0, textColor: [0, 0, 0] },
+      didDrawCell: (data) => {
+        if (data.section === 'head') {
+          doc.setDrawColor(0, 0, 0);
+          doc.setLineWidth(0.5);
+          doc.line(data.cell.x, data.cell.y + data.cell.height, data.cell.x + data.cell.width, data.cell.y + data.cell.height);
+        }
+      },
+      columnStyles: {
+        0: { cellWidth: 15, halign: 'center' },
+        1: { cellWidth: 'auto', halign: 'left' },
+        2: { cellWidth: 15, halign: 'center' },
+        3: { cellWidth: 20, halign: 'center' },
+        4: { cellWidth: 30, halign: 'center' },
+        5: { cellWidth: 20, halign: 'center' },
+        6: { cellWidth: 30, halign: 'right' }
+      }
+    });
+
+    const finalY = doc.lastAutoTable.finalY + 15;
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "bold");
+    doc.text("GST Breakdown", 14, finalY);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.text(`CGST: Rs.${(Number(invoice.totalGST) / 2).toFixed(2)}`, 14, finalY + 8);
+    doc.text(`SGST: Rs.${(Number(invoice.totalGST) / 2).toFixed(2)}`, 14, finalY + 14);
+
+    const rightColXValue = pageWidth - 65;
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "bold");
+    doc.text("Total Breakdown", rightColXValue, finalY);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.text("Subtotal", rightColXValue, finalY + 8);
+    doc.text(`Rs.${Number(invoice.totalAmount).toFixed(2)}`, pageWidth - 14, finalY + 8, { align: "right" });
+    doc.text("Total GST", rightColXValue, finalY + 14);
+    doc.text(`Rs.${Number(invoice.totalGST).toFixed(2)}`, pageWidth - 14, finalY + 14, { align: "right" });
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(12);
+    doc.text("Total Amount", rightColXValue, finalY + 25);
+    doc.text(`Rs.${Number(invoice.finalAmount).toFixed(2)}`, pageWidth - 14, finalY + 25, { align: "right" });
+
+    const centerX = pageWidth / 2;
+    const footerStartY = finalY + 55;
+    doc.line(centerX - 25, footerStartY, centerX + 25, footerStartY);
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(10);
+    doc.text("Authorized Signature", centerX, footerStartY + 5, { align: "center" });
+    doc.setFont("helvetica", "italic");
+    doc.setFontSize(11);
+    doc.text("Thank You! Visit Again", centerX, footerStartY + 18, { align: "center" });
+
+    doc.save(`Invoice_${invoice.invoiceNumber}.pdf`);
+  };
 
   const formatDate = (dateStr) => {
     if (!dateStr) return '—'
@@ -341,7 +454,7 @@ export default function Invoices() {
                             <Eye size={18} />
                           </button>
                           <button
-                            onClick={() => generateInvoicePDF(inv)}
+                            onClick={() => downloadPDF(inv)}
                             className="p-2 rounded-lg bg-slate-800 text-slate-300 hover:text-emerald-400 hover:bg-emerald-500/10 transition border border-slate-700/50"
                             title="Download PDF"
                           >
@@ -389,7 +502,7 @@ export default function Invoices() {
               </div>
               <div className="flex items-center gap-3">
                 <button
-                  onClick={() => generateInvoicePDF(selectedInvoice)}
+                  onClick={() => downloadPDF(selectedInvoice)}
                   className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl transition shadow-lg shadow-emerald-500/20 text-sm font-bold flex items-center gap-2"
                 >
                   <Download size={16} /> PDF
@@ -401,8 +514,97 @@ export default function Invoices() {
             </div>
 
             <div className="p-8">
-              <div className="bg-white rounded-2xl p-1 shadow-inner overflow-hidden">
-                <InvoicePreview invoice={selectedInvoice} />
+              <div className="bg-white text-slate-900 rounded-2xl p-10 shadow-inner overflow-hidden">
+                <div className="border-b-2 border-slate-100 pb-8 mb-8">
+                  <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-3">Seller Details</h3>
+                  <p className="text-2xl font-black text-slate-900 tracking-tighter">INVOIZ MART</p>
+                  <p className="text-sm font-bold text-slate-700 mt-1">GSTIN: <span className="text-slate-900">33ABCDE1234F1Z5</span></p>
+                  <p className="text-sm text-slate-500">Chennai, Tamil Nadu • +91-9876543210</p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-12 mb-10">
+                  <div>
+                    <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Bill To</h3>
+                    <p className="text-xl font-bold text-slate-900">{selectedInvoice.customer?.name || 'Walk-in Customer'}</p>
+                    {selectedInvoice.customer?.company && <p className="text-sm text-slate-600 mt-1">{selectedInvoice.customer.company}</p>}
+                    <p className="text-sm text-slate-500 mt-2">GSTIN: <span className="font-medium">N/A</span></p>
+                  </div>
+                  <div className="text-right">
+                    <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Invoice Information</h3>
+                    <p className="text-sm font-medium text-slate-600">No: <span className="text-slate-900 font-bold font-mono">#{selectedInvoice.invoiceNumber}</span></p>
+                    <p className="text-sm font-medium text-slate-600 mt-1">Issued: <span className="text-slate-900 font-bold">{formatDate(selectedInvoice.issueDate)}</span></p>
+                    {selectedInvoice.dueDate && (
+                      <p className="text-sm font-medium text-slate-600 mt-1 text-rose-500">Due: <span className="font-bold">{formatDate(selectedInvoice.dueDate)}</span></p>
+                    )}
+                  </div>
+                </div>
+
+                <div className="mb-10 overflow-x-auto rounded-xl border border-slate-100">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-slate-50 border-b border-slate-100 text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                        <th className="px-6 py-4 text-left">No</th>
+                        <th className="px-6 py-4 text-left">Item Name</th>
+                        <th className="px-6 py-4 text-center">Qty</th>
+                        <th className="px-6 py-4 text-right">Rate</th>
+                        <th className="px-6 py-4 text-right">GST</th>
+                        <th className="px-6 py-4 text-right">Amount</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-50">
+                      {selectedInvoice.items?.map((item, i) => (
+                        <tr key={i} className="text-slate-700">
+                          <td className="px-6 py-4 text-left font-mono text-[11px] text-slate-400">{i + 1}</td>
+                          <td className="px-6 py-4 text-left font-bold text-slate-900">{item.description}</td>
+                          <td className="px-6 py-4 text-center font-medium">{item.quantity}</td>
+                          <td className="px-6 py-4 text-right font-medium">₹{Number(item.price || item.unitPrice).toFixed(2)}</td>
+                          <td className="px-6 py-4 text-right text-xs text-slate-500">{item.gstPercentage || 0}%</td>
+                          <td className="px-6 py-4 text-right font-black text-slate-900">₹{Number(item.total).toFixed(2)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-start pt-6">
+                  <div>
+                    <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">GST Breakdown</h3>
+                    <div className="space-y-2 bg-slate-50/50 p-4 rounded-xl border border-slate-100">
+                      <div className="flex justify-between text-xs">
+                        <span className="text-slate-600 font-medium">CGST</span>
+                        <span className="font-bold text-slate-900">₹{(Number(selectedInvoice.totalGST) / 2).toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between text-xs">
+                        <span className="text-slate-600 font-medium">SGST</span>
+                        <span className="font-bold text-slate-900">₹{(Number(selectedInvoice.totalGST) / 2).toFixed(2)}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <h3 className="text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] mb-4">Final Settlement</h3>
+                    <div className="space-y-2 px-2">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-slate-500 font-medium">Subtotal</span>
+                        <span className="font-bold text-slate-900">₹{Number(selectedInvoice.totalAmount).toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-slate-500 font-medium">Tax Amount</span>
+                        <span className="font-bold text-slate-900">₹{Number(selectedInvoice.totalGST).toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between items-center bg-slate-900 text-white px-6 py-5 mt-4 rounded-2xl shadow-xl shadow-slate-900/10">
+                        <span className="text-xs font-black uppercase tracking-widest opacity-70">Total Amount</span>
+                        <span className="text-2xl font-black">₹{Number(selectedInvoice.finalAmount).toFixed(2)}</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-20 flex flex-col items-center">
+                  <div className="w-64 h-px bg-slate-200 mb-4"></div>
+                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-[0.3em]">Authorized Signatory</p>
+                  <p className="text-xs italic text-slate-300 mt-6 tracking-wide underline underline-offset-8">Thank you for your business!</p>
+                </div>
               </div>
             </div>
           </div>
@@ -435,6 +637,7 @@ export default function Invoices() {
                 onSuccess={(newInv) => {
                   toast.success('Invoice generated via voice!')
                   fetchInvoices(searchTerm)
+                  // We keep the modal open so user can see/download the invoice in the VoiceBilling screen
                 }}
               />
             </div>
