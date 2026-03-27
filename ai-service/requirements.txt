@@ -1,0 +1,40 @@
+# Web
+flask==3.0.3
+flask-cors==4.0.0
+
+# Environment
+python-dotenv==1.0.1
+
+# ── STT providers (install at least ONE) ────────────────────────────
+# Option A — Google STT, free, no API key (RECOMMENDED for quick start)
+SpeechRecognition==3.10.3
+
+# Option B — Deepgram (best accuracy, needs DEEPGRAM_API_KEY)
+deepgram-sdk==3.2.7
+
+# ── Audio conversion (required for webm→wav) ──────────────────────
+# pydub needs ffmpeg installed on the OS:
+#   Windows: choco install ffmpeg  OR  download from https://ffmpeg.org
+#   Linux:   sudo apt install ffmpeg
+#   macOS:   brew install ffmpeg
+pydub==0.25.1
+
+# ── TTS ───────────────────────────────────────────────────────────
+gTTS==2.5.1
+
+# ── Fuzzy matching ─────────────────────────────────────────────────
+rapidfuzz==3.6.2
+
+# ── HTTP ───────────────────────────────────────────────────────────
+requests==2.31.0
+httpx==0.27.0
+
+# ── Validation ─────────────────────────────────────────────────────
+pydantic==2.6.4
+
+# ── Server ─────────────────────────────────────────────────────────
+gunicorn==21.2.0
+
+# ── Testing ────────────────────────────────────────────────────────
+pytest==8.1.1
+pytest-flask==1.3.0
