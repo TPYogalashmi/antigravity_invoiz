@@ -121,7 +121,7 @@ function CustomerModal({ isOpen, onClose, customer, onSave }) {
 
   return (
     <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+      <div className="bg-slate-900 border border-slate-800 rounded-[2.5rem] shadow-2xl w-full max-w-5xl overflow-hidden animate-in fade-in zoom-in duration-200">
         <div className="px-6 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-900/50">
           <h2 className="font-syne text-xl font-bold text-white">
             {customer ? 'Edit Customer' : 'Add New Customer'}

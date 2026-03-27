@@ -45,42 +45,43 @@ public class InvoiceController {
 
     @GetMapping
     public ResponseEntity<ApiResponse<Page<InvoiceResponse>>> findAll(
-            @RequestParam(required = false) String search,
-            @RequestParam(required = false) String status,
-            @RequestParam(required = false) Long customerId,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
-            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
-            @RequestParam(required = false) BigDecimal minAmount,
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size,
-            @RequestParam(defaultValue = "createdAt") String sortBy,
-            @RequestParam(defaultValue = "desc") String sortDir) {
+            @RequestParam(name = "search", required = false) String search,
+            @RequestParam(name = "status", required = false) String status,
+            @RequestParam(name = "customerId", required = false) Long customerId,
+            @RequestParam(name = "startDate", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(name = "endDate", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+            @RequestParam(name = "minAmount", required = false) BigDecimal minAmount,
+            @RequestParam(name = "type", required = false) String type,
+            @RequestParam(name = "page", defaultValue = "0") int page,
+            @RequestParam(name = "size", defaultValue = "10") int size,
+            @RequestParam(name = "sortBy", defaultValue = "createdAt") String sortBy,
+            @RequestParam(name = "sortDir", defaultValue = "desc") String sortDir) {
 
         Sort sort = sortDir.equalsIgnoreCase("asc")
                 ? Sort.by(sortBy).ascending()
                 : Sort.by(sortBy).descending();
 
         Page<InvoiceResponse> invoices = invoiceService.findAll(search, status, customerId, startDate, endDate,
-                minAmount, PageRequest.of(page, size, sort));
+                minAmount, type, PageRequest.of(page, size, sort));
         return ResponseEntity.ok(ApiResponse.success(invoices));
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<ApiResponse<InvoiceResponse>> findById(@PathVariable Long id) {
+    public ResponseEntity<ApiResponse<InvoiceResponse>> findById(@PathVariable(name = "id") Long id) {
         return ResponseEntity.ok(ApiResponse.success(invoiceService.findById(id)));
     }
 
     @PatchMapping("/{id}/status")
     public ResponseEntity<ApiResponse<InvoiceResponse>> updateStatus(
-            @PathVariable Long id,
-            @RequestParam String status) {
+            @PathVariable(name = "id") Long id,
+            @RequestParam(name = "status") String status) {
         return ResponseEntity.ok(
                 ApiResponse.success("Status updated", invoiceService.updateStatus(id, status)));
     }
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<ApiResponse<Void>> delete(@PathVariable Long id) {
+    public ResponseEntity<ApiResponse<Void>> delete(@PathVariable(name = "id") Long id) {
         invoiceService.delete(id);
         return ResponseEntity.ok(ApiResponse.success("Invoice deleted", null));
     }

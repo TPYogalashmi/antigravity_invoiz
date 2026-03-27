@@ -88,7 +88,7 @@ function ProductModal({ isOpen, onClose, product, onSave }) {
       />
 
       {/* Modal Card */}
-      <div className="relative w-full max-w-lg bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-300">
+      <div className="relative w-full max-w-5xl bg-slate-900 border border-slate-800 rounded-[2.5rem] shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-300">
         <div className="p-8">
           <div className="flex items-center justify-between mb-8">
             <h2 className="text-2xl font-bold text-white font-syne">

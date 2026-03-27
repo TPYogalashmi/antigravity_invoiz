@@ -146,7 +146,7 @@ public class InvoiceServiceImpl implements InvoiceService {
     @Transactional(readOnly = true)
     public Page<InvoiceResponse> findAll(
             String search, String status, Long customerId, LocalDate startDate, LocalDate endDate, BigDecimal minAmount,
-            Pageable pageable) {
+            String type, Pageable pageable) {
 
         Invoice.Status statusEnum = null;
         if (status != null && !status.isBlank()) {
@@ -162,7 +162,7 @@ public class InvoiceServiceImpl implements InvoiceService {
                 : "%" + search.trim().toLowerCase() + "%";
 
         return invoiceRepository.findByFilters(
-                searchPattern, statusEnum, customerId, startDate, endDate, minAmount, pageable)
+                searchPattern, statusEnum, customerId, startDate, endDate, minAmount, type, pageable)
                 .map(invoiceMapper::toResponse);
     }
 

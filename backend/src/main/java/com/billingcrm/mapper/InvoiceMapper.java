@@ -37,13 +37,17 @@ public class InvoiceMapper {
     }
 
     private InvoiceResponse.CustomerSummary mapCustomer(Invoice inv) {
-        if (inv.getCustomer() == null)
+        if (inv.getCustomer() == null) {
+            // Check for customerName stored directly in invoice if linked customer is null (though rarely used in recent flows)
             return null;
+        }
         return InvoiceResponse.CustomerSummary.builder()
                 .id(inv.getCustomer().getId())
                 .name(inv.getCustomer().getName())
                 .email(inv.getCustomer().getEmail())
                 .phone(inv.getCustomer().getPhone())
+                .company(inv.getCustomer().getCompany())
+                .taxId(inv.getCustomer().getTaxId())
                 .build();
     }
 

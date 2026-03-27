@@ -26,6 +26,8 @@ const ManualBilling = () => {
   const [items, setItems] = useState([]) // { id, productId, name, price, quantity, gst, total }
   const [productSearch, setProductSearch] = useState('')
   const [productSuggestions, setProductSuggestions] = useState([])
+  const [productPage, setProductPage] = useState(0)
+  const [productTotalPages, setProductTotalPages] = useState(0)
   const [showProductDropdown, setShowProductDropdown] = useState(false)
 
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -58,14 +60,26 @@ const ManualBilling = () => {
     }
   }, [billingType])
 
-  const fetchProductSuggestions = useCallback(async (query) => {
+  const fetchProductSuggestions = useCallback(async (query, page = 0) => {
     if (!query || query.length < 1) {
       setProductSuggestions([])
+      setProductTotalPages(0)
       return
     }
     try {
-      const resp = await backendClient.get('/products', { params: { search: query, status: 'AVAILABLE', size: 8, onlyName: true } })
-      setProductSuggestions(resp.data?.data?.content || [])
+      const resp = await backendClient.get('/products', {
+        params: {
+          search: query,
+          status: 'AVAILABLE',
+          size: 5,
+          page,
+          onlyName: true
+        }
+      })
+      const data = resp.data?.data
+      setProductSuggestions(data?.content || [])
+      setProductTotalPages(data?.totalPages || 0)
+      setProductPage(page)
       setShowProductDropdown(true)
     } catch (err) {
       console.error('Product fetch failed', err)
@@ -235,7 +249,7 @@ const ManualBilling = () => {
         {/* Main Content Area */}
         <div className="lg:col-span-2 space-y-8">
           {/* Customer Selection Card */}
-          <div className="p-8 rounded-[2.5rem] bg-slate-900/50 border border-slate-800 backdrop-blur-md relative overflow-visible shadow-xl">
+          <div className="p-8 rounded-[2.5rem] bg-slate-900/50 border border-slate-800 backdrop-blur-md relative z-30 overflow-visible shadow-xl">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-7 rounded-xl bg-cyan-500/10 flex items-center justify-center text-cyan-400 shadow-inner">
@@ -267,17 +281,14 @@ const ManualBilling = () => {
                 value={selectedCustomer ? (selectedCustomer.name || selectedCustomer.company) : customerSearch}
                 readOnly={!!selectedCustomer}
                 onChange={(e) => setCustomerSearch(e.target.value)}
-                className="w-full pl-14 pr-12 py-4 rounded-3xl bg-slate-950 border border-slate-800 text-white focus:outline-none focus:border-cyan-500/50 ring-4 ring-cyan-500/0 focus:ring-cyan-500/5 transition-all font-medium"
+                onKeyDown={(e) => {
+                  if (e.key === 'Backspace' && selectedCustomer) {
+                    setSelectedCustomer(null);
+                    setCustomerSearch('');
+                  }
+                }}
+                className="w-full pl-14 pr-6 py-4 rounded-3xl bg-slate-950 border border-slate-800 text-white focus:outline-none focus:border-cyan-500/50 ring-4 ring-cyan-500/0 focus:ring-cyan-500/5 transition-all font-medium"
               />
-
-              {selectedCustomer && (
-                <button
-                  onClick={() => { setSelectedCustomer(null); setCustomerSearch(''); }}
-                  className="absolute right-5 top-1/2 -translate-y-1/2 p-2 rounded-xl bg-slate-800 text-rose-400 hover:bg-rose-500 hover:text-white transition-all shadow-lg"
-                >
-                  <Trash2 size={16} />
-                </button>
-              )}
 
               {showCustomerDropdown && !selectedCustomer && (
                 <>
@@ -287,15 +298,33 @@ const ManualBilling = () => {
                       customerSuggestions.map(c => (
                         <button
                           key={c.id}
+                          disabled={c.status === 'SUSPENDED'}
                           onClick={() => { setSelectedCustomer(c); setShowCustomerDropdown(false); }}
-                          className="w-full flex items-center justify-between px-6 py-4 hover:bg-slate-800 transition border-b border-slate-800/50 last:border-0 group/item"
+                          className={`w-full flex items-center justify-between px-6 py-4 transition border-b border-slate-800/50 last:border-0 group/item ${
+                            c.status === 'SUSPENDED'
+                              ? 'bg-slate-900/40 opacity-50 cursor-not-allowed'
+                              : 'hover:bg-slate-800'
+                          }`}
                         >
                           <div className="text-left">
-                            <p className="text-sm font-bold text-white group-hover/item:text-cyan-400 transition-colors">{c.name}</p>
+                            <div className="flex items-center gap-2">
+                              <p className={`text-sm font-bold transition-colors ${c.status === 'SUSPENDED' ? 'text-slate-500' : 'text-white group-hover/item:text-cyan-400'}`}>
+                                {c.name}
+                              </p>
+                              {c.status === 'SUSPENDED' && (
+                                <span className="px-2 py-0.5 rounded-md bg-rose-500/10 border border-rose-500/20 text-[8px] font-black text-rose-500 uppercase tracking-widest">
+                                  Suspended
+                                </span>
+                              )}
+                            </div>
                             <p className="text-[10px] text-slate-500 font-mono tracking-wider">{c.company || 'Individual'}</p>
                           </div>
                           <div className="text-right flex flex-col items-end">
-                            <span className={`text-[9px] font-black px-2 py-0.5 rounded-full border ${c.taxId ? 'border-cyan-500/30 text-cyan-500 bg-cyan-500/5' : 'border-slate-700 text-slate-500'}`}>
+                            <span className={`text-[9px] font-black px-2 py-0.5 rounded-full border ${
+                              c.status === 'SUSPENDED'
+                                ? 'border-slate-800 text-slate-600'
+                                : c.taxId ? 'border-cyan-500/30 text-cyan-500 bg-cyan-500/5' : 'border-slate-700 text-slate-500'
+                            }`}>
                               {c.taxId ? 'GST REGISTERED' : 'REGULAR'}
                             </span>
                           </div>
@@ -304,6 +333,28 @@ const ManualBilling = () => {
                     ) : (
                       <div className="px-8 py-6 text-xs text-slate-500 italic text-center bg-slate-900">
                         No matches found for "{customerSearch}"
+                      </div>
+                    )}
+
+                    {customerTotalPages > 1 && (
+                      <div className="px-6 py-3 bg-slate-800/50 border-t border-slate-800 flex items-center justify-between">
+                        <button
+                          disabled={customerPage === 0}
+                          onClick={(e) => { e.stopPropagation(); fetchCustomerSuggestions(customerSearch, customerPage - 1); }}
+                          className="p-1.5 rounded-lg hover:bg-slate-700 disabled:opacity-30 text-slate-400 transition"
+                        >
+                          <ChevronLeft size={16} />
+                        </button>
+                        <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                          Page {customerPage + 1} of {customerTotalPages}
+                        </span>
+                        <button
+                          disabled={customerPage >= customerTotalPages - 1}
+                          onClick={(e) => { e.stopPropagation(); fetchCustomerSuggestions(customerSearch, customerPage + 1); }}
+                          className="p-1.5 rounded-lg hover:bg-slate-700 disabled:opacity-30 text-slate-400 transition"
+                        >
+                          <ChevronRight size={16} />
+                        </button>
                       </div>
                     )}
                   </div>
@@ -337,7 +388,7 @@ const ManualBilling = () => {
                       >
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-bold text-white group-hover/prod:text-cyan-400 transition-colors truncate">{p.name}</p>
-                          <p className="text-[10px] text-slate-500 mt-1 uppercase font-black tracking-widest">{p.alias || 'Standard Unit'}</p>
+                          <p className="text-[10px] text-slate-500 mt-1 uppercase font-black tracking-widest">{p.unit || p.alias || 'Pcs'}</p>
                         </div>
                         <div className="text-right ml-4">
                           <p className="text-sm font-black text-white italic tracking-tighter">₹{p.price.toFixed(2)}</p>
@@ -355,6 +406,28 @@ const ManualBilling = () => {
                     </div>
                   )}
                 </div>
+
+                {productTotalPages > 1 && (
+                  <div className="flex items-center justify-between px-2 pt-2">
+                    <button
+                      disabled={productPage === 0}
+                      onClick={() => fetchProductSuggestions(productSearch, productPage - 1)}
+                      className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-slate-800 text-slate-400 text-[10px] font-bold uppercase transition hover:bg-slate-700 disabled:opacity-30"
+                    >
+                      <ChevronLeft size={14} /> Prev
+                    </button>
+                    <span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">
+                      {productPage + 1} / {productTotalPages}
+                    </span>
+                    <button
+                      disabled={productPage >= productTotalPages - 1}
+                      onClick={() => fetchProductSuggestions(productSearch, productPage + 1)}
+                      className="flex items-center gap-1 px-3 py-1.5 rounded-xl bg-slate-800 text-slate-400 text-[10px] font-bold uppercase transition hover:bg-slate-700 disabled:opacity-30"
+                    >
+                      Next <ChevronRight size={14} />
+                    </button>
+                  </div>
+                )}
               </div>
 
               <div className="space-y-6">
