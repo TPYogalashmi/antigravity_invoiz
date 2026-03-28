@@ -78,6 +78,14 @@ public class InvoiceController {
         return ResponseEntity.ok(
                 ApiResponse.success("Status updated", invoiceService.updateStatus(id, status)));
     }
+ 
+    @PatchMapping("/{id}/due-date")
+    public ResponseEntity<ApiResponse<InvoiceResponse>> updateDueDate(
+            @PathVariable(name = "id") Long id,
+            @RequestParam(name = "dueDate") @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate dueDate) {
+        return ResponseEntity.ok(
+                ApiResponse.success("Due date updated", invoiceService.updateDueDate(id, dueDate)));
+    }
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")

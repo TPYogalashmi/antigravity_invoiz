@@ -188,7 +188,6 @@ export default function Invoices() {
       case 'UNPAID':
         return [
           { value: 'PAID', label: 'Mark as Paid', icon: CheckCircle2, color: 'text-emerald-400' },
-          { value: 'OVERDUE', label: 'Mark as Overdue', icon: AlertCircle, color: 'text-rose-400' },
           { value: 'CANCELLED', label: 'Cancel Invoice', icon: XCircle, color: 'text-slate-500' }
         ];
       case 'OVERDUE':

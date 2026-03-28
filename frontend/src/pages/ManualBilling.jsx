@@ -259,6 +259,22 @@ const ManualBilling = () => {
     }
   }
 
+  const handleUpdateDueDate = async (date) => {
+    if (!createdInvoice || !date) return
+    setIsUpdatingStatus(true)
+    try {
+      await backendClient.patch(`/invoices/${createdInvoice.id}/due-date`, null, {
+        params: { dueDate: date }
+      })
+      setCreatedInvoice({ ...createdInvoice, dueDate: date })
+      toast.success(`Due date updated to ${new Date(date).toLocaleDateString()}`)
+    } catch (err) {
+      toast.error('Failed to update due date')
+    } finally {
+      setIsUpdatingStatus(false)
+    }
+  }
+
   const handleUpdateDiscount = async (productId, val) => {
     if (!selectedCustomer) return
     try {
@@ -310,6 +326,20 @@ const ManualBilling = () => {
                 >
                   {isUpdatingStatus ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />} Mark Paid
                 </button>
+ 
+                <div className="relative inline-block">
+                  <input
+                    type="date"
+                    className="absolute inset-0 opacity-0 cursor-pointer pointer-events-auto"
+                    onChange={(e) => handleUpdateDueDate(e.target.value)}
+                  />
+                  <button
+                    className="flex items-center gap-2 px-6 py-3 bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 border border-amber-500/40 font-black text-[11px] uppercase tracking-widest rounded-2xl transition-all active:scale-95"
+                  >
+                    <Calendar size={14} /> Schedule Due
+                  </button>
+                </div>
+ 
                 <button
                   disabled={isUpdatingStatus}
                   onClick={() => handleUpdateStatus('CANCELLED')}

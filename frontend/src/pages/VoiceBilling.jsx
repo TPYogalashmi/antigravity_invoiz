@@ -370,6 +370,22 @@ export default function VoiceBilling({ onSuccess }) {
     }
   }
 
+  const handleUpdateDueDate = async (date) => {
+    if (!invoice || !date) return;
+    try {
+      const resp = await backendClient.patch(`/invoices/${invoice.id}/due-date`, null, {
+        params: { dueDate: date }
+      })
+      const updatedInv = resp.data?.data;
+      if (updatedInv) {
+        setInvoice(updatedInv);
+        toast.success(`Due date updated to ${new Date(date).toLocaleDateString()}`);
+      }
+    } catch (err) {
+      toast.error('Failed to update due date');
+    }
+  }
+
   const handleReset = () => {
     setRecState(STATE.IDLE); setTranscript(''); setNlpResult(null);
     setEditingData(null); setInvoice(null); setErrorMsg('');
@@ -988,10 +1004,25 @@ export default function VoiceBilling({ onSuccess }) {
                     <Button
                       icon={CheckCircle2}
                       onClick={() => handleUpdateStatus('PAID')}
-                      className="bg-cyan-500/90 hover:bg-cyan-400 text-slate-950 font-semibold"
+                      className="bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-semibold"
                     >
                       Mark Paid
                     </Button>
+ 
+                    <div className="relative inline-block">
+                      <input
+                        type="date"
+                        className="absolute inset-0 opacity-0 cursor-pointer pointer-events-auto"
+                        onChange={(e) => handleUpdateDueDate(e.target.value)}
+                      />
+                      <Button
+                        icon={Calendar}
+                        className="bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 border border-amber-500/40 font-semibold"
+                      >
+                        Schedule Due
+                      </Button>
+                    </div>
+ 
                     <Button
                       icon={XCircle}
                       onClick={() => handleUpdateStatus('CANCELLED')}

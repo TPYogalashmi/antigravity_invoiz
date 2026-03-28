@@ -526,7 +526,7 @@ export default function CustomerProfile() {
                       </div>
                     </div>
 
-                    <div className="grid grid-cols-3 gap-2 mt-1">
+                    <div className="grid grid-cols-2 gap-2 mt-1">
                       <button
                         onClick={() => handleStatusChange(bill.id, 'PAID', bill.invoiceNumber)}
                         className="py-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 text-[10px] font-bold border border-emerald-500/20 hover:bg-emerald-500 hover:text-slate-950 transition-all uppercase tracking-tighter"
@@ -538,12 +538,6 @@ export default function CustomerProfile() {
                         className="py-1.5 rounded-lg bg-slate-800 text-slate-400 text-[10px] font-bold border border-slate-700 hover:bg-rose-500/10 hover:text-rose-400 hover:border-rose-500/20 transition-all uppercase tracking-tighter"
                       >
                         Cancel
-                      </button>
-                      <button
-                        onClick={() => handleStatusChange(bill.id, 'OVERDUE', bill.invoiceNumber)}
-                        className="py-1.5 rounded-lg bg-rose-500/10 text-rose-500 text-[10px] font-bold border border-rose-500/20 hover:bg-rose-500 hover:text-slate-950 transition-all uppercase tracking-tighter"
-                      >
-                        Overdue
                       </button>
                     </div>
                   </div>

@@ -58,6 +58,11 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
         BigDecimal sumUnpaidRevenue();
 
         long countByStatus(Invoice.Status status);
+ 
+        @org.springframework.data.jpa.repository.Modifying
+        @org.springframework.transaction.annotation.Transactional
+        @Query("UPDATE Invoice i SET i.status = :overdueStatus WHERE i.dueDate < :today AND i.status = :unpaidStatus")
+        int updateOverdueStatus(@Param("today") LocalDate today, @Param("unpaidStatus") Invoice.Status unpaidStatus, @Param("overdueStatus") Invoice.Status overdueStatus);
 
         @Query("SELECT COUNT(i) FROM Invoice i WHERE i.dueDate < :today AND i.status = 'UNPAID'")
         long countOverdue(@Param("today") LocalDate today);

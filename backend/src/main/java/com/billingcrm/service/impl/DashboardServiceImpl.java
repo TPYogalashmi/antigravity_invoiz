@@ -31,8 +31,12 @@ public class DashboardServiceImpl implements DashboardService {
     private final ProductRepository productRepository;
 
     @Override
+    @Transactional
     public DashboardStatsResponse getStats() {
         LocalDate today = LocalDate.now();
+        
+        // Auto-update overdue statuses whenever dashboard/login happens
+        invoiceRepository.updateOverdueStatus(today, Invoice.Status.UNPAID, Invoice.Status.OVERDUE);
         LocalDate startOfMonth = today.withDayOfMonth(1);
         LocalDate startOfPrevMonth = startOfMonth.minusMonths(1);
         LocalDate endOfPrevMonth = startOfMonth.minusDays(1);

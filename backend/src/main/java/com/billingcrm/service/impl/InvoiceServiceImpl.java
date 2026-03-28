@@ -51,6 +51,14 @@ public class InvoiceServiceImpl implements InvoiceService {
                     ? userRepository.findById(userId).orElse(null)
                     : null;
 
+            boolean isB2B = (customer.getTaxId() != null && !customer.getTaxId().isBlank());
+            LocalDate issueDate = (req.getIssueDate() != null ? req.getIssueDate() : LocalDate.now());
+            LocalDate dueDate = req.getDueDate();
+            
+            if (dueDate == null && isB2B) {
+                dueDate = issueDate.plusMonths(1);
+            }
+
             // ── 3. Build Invoice shell ──────────────────────────────────────
             Invoice invoice = Invoice.builder()
                     .invoiceNumber(generateInvoiceNumber())
@@ -59,8 +67,8 @@ public class InvoiceServiceImpl implements InvoiceService {
                     .currency(req.getCurrency() != null && !req.getCurrency().isBlank()
                             ? req.getCurrency().toUpperCase()
                             : DEFAULT_CURRENCY)
-                    .issueDate(req.getIssueDate() != null ? req.getIssueDate() : LocalDate.now())
-                    .dueDate(req.getDueDate() != null ? req.getDueDate() : (req.getIssueDate() != null ? req.getIssueDate() : LocalDate.now()).plusDays(30))
+                    .issueDate(issueDate)
+                    .dueDate(dueDate)
                     .notes(req.getNotes())
                     .voiceTranscript(req.getVoiceTranscript())
                     .voiceGenerated(req.isVoiceGenerated())
@@ -95,8 +103,6 @@ public class InvoiceServiceImpl implements InvoiceService {
             BigDecimal discountPercent = BigDecimal.ZERO;
             BigDecimal discountAmount = BigDecimal.ZERO;
 
-            boolean isB2B = (customer.getTaxId() != null && !customer.getTaxId().isBlank());
-            
             if (isB2B) {
                 // B2B: Flat Rate dynamic logic (10% or 20%)
                 LocalDate thirtyDaysAgo = LocalDate.now().minusDays(30);
@@ -195,6 +201,13 @@ public class InvoiceServiceImpl implements InvoiceService {
     public InvoiceResponse updateStatus(Long id, String status) {
         Invoice invoice = fetchById(id);
         invoice.setStatus(parseStatus(status, invoice.getStatus()));
+        return invoiceMapper.toResponse(invoiceRepository.save(invoice));
+    }
+ 
+    @Override
+    public InvoiceResponse updateDueDate(Long id, LocalDate dueDate) {
+        Invoice invoice = fetchById(id);
+        invoice.setDueDate(dueDate);
         return invoiceMapper.toResponse(invoiceRepository.save(invoice));
     }
 
