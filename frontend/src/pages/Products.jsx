@@ -18,11 +18,11 @@ const productSchema = z.object({
   description: z.string().nullish().or(z.literal('')),
   price: z.preprocess(
     (val) => (val === '' ? undefined : Number(val)),
-    z.number({ required_error: 'Price is required' }).min(0.01, 'Price must be positive')
+    z.number({ required_error: 'Price is required' }).positive('Price must be greater than zero')
   ),
   gstPercentage: z.preprocess(
     (val) => (val === '' ? 0 : Number(val)),
-    z.number().min(0, 'GST % cannot be negative').max(100, 'GST % cannot exceed 100')
+    z.number().int('GST must be a whole number').min(0, 'GST % cannot be negative').max(100, 'GST % cannot exceed 100')
   ),
   sku: z.string().nullish().or(z.literal('')),
   unit: z.string().nullish().or(z.literal('')),
@@ -83,13 +83,13 @@ function ProductModal({ isOpen, onClose, product, onSave }) {
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-slate-950/80 backdrop-blur-md transition-opacity"
+        className="absolute inset-0 bg-slate-950/20 transition-opacity"
         onClick={onClose}
       />
 
       {/* Modal Card */}
-      <div className="relative w-full max-w-5xl bg-slate-900 border border-slate-800 rounded-[2.5rem] shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-300">
-        <div className="p-8">
+      <div className="relative w-full max-w-2xl bg-slate-900 border border-slate-800 rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.6)] overflow-hidden animate-in fade-in zoom-in duration-300 max-h-[90vh] flex flex-col">
+        <div className="p-8 overflow-y-auto custom-scrollbar">
           <div className="flex items-center justify-between mb-8">
             <h2 className="text-2xl font-bold text-white font-syne">
               {isEditing ? 'Update Product' : 'Add New Product'}
@@ -156,7 +156,7 @@ function ProductModal({ isOpen, onClose, product, onSave }) {
                   type="text"
                   {...register('sku')}
                   placeholder="VB-001"
-                  className={`w-full px-4 py-3 rounded-2xl bg-slate-800/50 border text-sm text-white focus:border-cyan-500/50 outline-none ring-2 ring-cyan-500/10 transition ${errors.sku ? 'border-rose-500/60' : 'border-slate-800'
+                  className={`w-full px-4 py-3 rounded-2xl bg-slate-800/50 border text-sm text-white focus:border-cyan-500/50 outline-none ring-2 ring-cyan-500/10 transition ${errors.sku ? 'border-rose-500/60' : (isEditing ? 'border-cyan-500/30 ring-1 ring-cyan-500/5' : 'border-slate-800')
                     }`}
                 />
                 {errors.sku && <p className="mt-2 text-xs text-rose-400">{errors.sku.message}</p>}
@@ -341,8 +341,8 @@ export default function Products() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
-          <h1 className="text-3xl font-bold font-syne text-white tracking-tight">Catalogs</h1>
-          <p className="text-slate-500 mt-1 flex items-center gap-2">
+          <h1 className="text-2xl  font-syne text-white">Catalogs</h1>
+          <p className="text-slate-500 mt-1 flex text-sm items-center gap-2">
             Manage your inventory, pricing, and tax configurations
           </p>
         </div>
@@ -383,7 +383,7 @@ export default function Products() {
             onChange={(e) => setStatusFilter(e.target.value)}
             className="w-full h-full px-5 py-3.5 rounded-2xl bg-slate-900/50 border border-slate-800 text-slate-300 text-sm focus:outline-none focus:border-cyan-500/40 transition-all backdrop-blur-sm appearance-none cursor-pointer pr-10"
           >
-            <option value="">All Status</option>
+            <option value="">Stock Availabilty</option>
             <option value="AVAILABLE">Available Only</option>
             <option value="OUT_OF_STOCK">Out Of Stock Only</option>
           </select>
@@ -459,7 +459,7 @@ export default function Products() {
                     </td>
                     {/* Column 1: Unit Price */}
                     <td className="px-6 py-6">
-                      <div className="flex items-center gap-1.5 font-bold text-white text-lg tracking-tighter">
+                      <div className="flex items-center gap-1.5 font-semibold text-slate-300 tracking-tighter">
                         <IndianRupee size={14} className="text-cyan-500" />
                         {item.price.toFixed(2)}
                       </div>
@@ -486,13 +486,17 @@ export default function Products() {
                     </td>
                     <td className="px-6 py-6">
                       <span className={`
-                        inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider
-                        ${item.status === 'AVAILABLE'
-                          ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shadow-[0_0_15px_-5px_theme(colors.emerald.500)]'
+                          inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider
+                          ${item.status === 'AVAILABLE'
+                          ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/40'
                           : 'bg-rose-500/10 text-rose-400 border border-rose-500/20 shadow-[0_0_15px_-5px_theme(colors.rose.500)]'
                         }
-                      `}>
-                        <span className={`w-1.5 h-1.5 rounded-full ${item.status === 'AVAILABLE' ? 'bg-emerald-400' : 'bg-rose-400'} animate-pulse`} />
+                        `}>
+                        <span className={`
+                              w-1.5 h-1.5 rounded-full 
+                            ${item.status === 'AVAILABLE' ? 'bg-emerald-400' : 'bg-rose-400 animate-pulse'}
+                        `} />
+
                         {item.status.replace(/_/g, ' ')}
                       </span>
                     </td>

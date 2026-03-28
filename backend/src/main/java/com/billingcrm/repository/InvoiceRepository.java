@@ -10,6 +10,7 @@ import org.springframework.stereotype.Repository;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.List;
 import java.util.Optional;
 
 @Repository
@@ -61,9 +62,22 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
         @Query("SELECT COUNT(i) FROM Invoice i WHERE i.dueDate < :today AND i.status = 'UNPAID'")
         long countOverdue(@Param("today") LocalDate today);
 
-        @Query("""
-                        SELECT MAX(CAST(SUBSTRING(i.invoiceNumber, LENGTH(i.invoiceNumber) - 3) AS int))
-                        FROM Invoice i WHERE i.invoiceNumber LIKE CONCAT('INV-', :prefix, '-%')
-                        """)
+        @Query("SELECT MAX(CAST(SUBSTRING(i.invoiceNumber, LENGTH(i.invoiceNumber) - 3) AS int)) " +
+               "FROM Invoice i WHERE i.invoiceNumber LIKE CONCAT('INV-', :prefix, '-%')")
         Optional<Integer> findMaxSequenceForDate(@Param("prefix") String datePrefix);
+
+        @Query("SELECT COALESCE(SUM(i.finalAmount),0) FROM Invoice i WHERE i.issueDate = :date")
+        BigDecimal sumRevenueByDate(@Param("date") LocalDate date);
+
+        @Query("SELECT COALESCE(SUM(i.finalAmount),0) FROM Invoice i WHERE i.issueDate >= :startDate AND i.issueDate <= :endDate")
+        BigDecimal sumRevenueBetweenDates(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
+
+        @Query("SELECT COUNT(i) FROM Invoice i WHERE i.issueDate = :date")
+        long countTotalOrdersByDate(@Param("date") LocalDate date);
+
+        @Query("SELECT COUNT(i) FROM Invoice i WHERE i.issueDate >= :startDate AND i.issueDate <= :endDate")
+        long countTotalOrdersBetweenDates(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
+
+        @Query("SELECT i.issueDate, SUM(i.finalAmount) FROM Invoice i WHERE i.issueDate >= :startDate AND i.issueDate <= :endDate GROUP BY i.issueDate ORDER BY i.issueDate ASC")
+        List<Object[]> getDailyRevenueBetweenDates(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
 }

@@ -121,8 +121,8 @@ function CustomerModal({ isOpen, onClose, customer, onSave }) {
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-      <div className="bg-slate-900 border border-slate-800 rounded-[2.5rem] shadow-2xl w-full max-w-5xl overflow-hidden animate-in fade-in zoom-in duration-200">
+    <div className="fixed inset-0 bg-slate-950/20 flex items-center justify-center p-4 z-50">
+      <div className="bg-slate-900 border border-slate-800 rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.6)] w-full max-w-[70vw] overflow-hidden animate-in fade-in zoom-in duration-200 flex flex-col max-h-[70vh]">
         <div className="px-6 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-900/50">
           <h2 className="font-syne text-xl font-bold text-white">
             {customer ? 'Edit Customer' : 'Add New Customer'}
@@ -403,7 +403,7 @@ export default function Customers() {
 
         {/* LEFT: Title */}
         <div>
-          <h1 className="font-syne text-2xl font-bold text-white">Customers</h1>
+          <h1 className="font-syne text-2xl text-white">Customers</h1>
           <p className="text-sm text-slate-500 mt-0.5">
             Manage your client relationships
           </p>
@@ -450,14 +450,13 @@ export default function Customers() {
         ) : customers.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
             {customers.map((c) => (
-              <div 
-                key={c.id} 
+              <div
+                key={c.id}
                 onClick={() => navigate(`/customers/${c.id}`)}
-                className={`relative p-6 rounded-2xl transition group overflow-hidden shadow-sm cursor-pointer border ${
-                  c.status === 'SUSPENDED' 
-                    ? 'bg-rose-950/20 border-rose-500/30 hover:border-rose-500/50 hover:shadow-rose-500/5' 
-                    : 'bg-slate-900 border-slate-800 hover:border-slate-700 hover:shadow-cyan-500/5'
-                }`}
+                className={`relative p-6 rounded-2xl transition group overflow-hidden shadow-sm cursor-pointer border ${c.status === 'SUSPENDED'
+                  ? 'bg-rose-950/20 border-rose-500/30 hover:border-rose-500/50 hover:shadow-rose-500/5'
+                  : 'bg-slate-900 border-slate-800 hover:border-slate-700 hover:shadow-cyan-500/5'
+                  }`}
               >
                 <div className="absolute top-6 right-6 flex flex-col items-end gap-2 z-10">
 

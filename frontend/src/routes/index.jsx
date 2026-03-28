@@ -9,6 +9,7 @@ import Customers from '../pages/Customers'
 import Products from '../pages/Products'
 import VoiceBilling from '../pages/VoiceBilling'
 import ManualBilling from '../pages/ManualBilling'
+import Profile from '../pages/Profile'
 import CustomerProfile from '../pages/CustomerProfile'
 
 function ProtectedRoute({ children }) {
@@ -62,6 +63,7 @@ export default function AppRoutes() {
         <Route path="products"      element={<Products />} />
         <Route path="voice-billing" element={<VoiceBilling />} />
         <Route path="manual-billing" element={<ManualBilling />} />
+        <Route path="profile" element={<Profile />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/dashboard" replace />} />

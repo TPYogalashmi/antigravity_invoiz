@@ -28,6 +28,7 @@ import {
 import Button from '../components/ui/Button'
 import { aiClient, backendClient } from '../api/axios'
 import toast from 'react-hot-toast'
+import { useAuthStore } from '../store/useAuthStore'
 import { InvoicePreview, generateInvoicePDF } from '../utils/InvoiceUtils'
 
 // ── Recording state machine ───────────────────────────────────────────────────
@@ -69,6 +70,7 @@ function getSupportedMimeType() {
 }
 
 export default function VoiceBilling({ onSuccess }) {
+  const { user: seller } = useAuthStore()
   const [recState, setRecState] = useState(STATE.IDLE)
   const [transcript, setTranscript] = useState('')
   const [nlpResult, setNlpResult] = useState(null)
@@ -170,6 +172,37 @@ export default function VoiceBilling({ onSuccess }) {
       console.error('Failed to fetch customer profile', err)
     }
   }, [])
+
+  const handleWalkInSelect = async () => {
+    try {
+      const resp = await backendClient.get('/customers', {
+        params: { search: '1111111111', size: 1 }
+      })
+      const found = resp.data?.data?.content?.find(c => c.phone === '1111111111')
+
+      if (found) {
+        setSelectedCustomer(found)
+        fetchCustomerDetails(found.id)
+        toast.success('Walk-in selected')
+      } else {
+        if (window.confirm('Walk-in Customer record not found. Create it now?')) {
+          const createResp = await backendClient.post('/customers', {
+            name: 'Walk-in Customer',
+            phone: '1111111111',
+            status: 'ACTIVE'
+          })
+          const newCust = createResp.data?.data
+          if (newCust) {
+            setSelectedCustomer(newCust)
+            fetchCustomerDetails(newCust.id)
+            toast.success('Walk-in record created')
+          }
+        }
+      }
+    } catch (err) {
+      toast.error('Failed to select walk-in customer')
+    }
+  }
 
   const handleUpdateDiscount = async (productId, val) => {
     if (!selectedCustomer) return
@@ -433,7 +466,7 @@ export default function VoiceBilling({ onSuccess }) {
   return (
     <div className="space-y-6 font-dm w-full max-w-full">
       <div>
-        <h1 className="font-syne text-2xl font-bold text-white">Voice Billing</h1>
+        <h1 className="font-syne text-2xl text-white">Voice Billing</h1>
         <p className="text-sm text-slate-500 mt-0.5">Speak naturally to generate invoices instantly.</p>
       </div>
 
@@ -442,26 +475,31 @@ export default function VoiceBilling({ onSuccess }) {
         <div className="p-8 rounded-[2.5rem] bg-slate-900/50 border border-slate-800 backdrop-blur-md relative z-30 overflow-visible shadow-xl">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-7 rounded-xl bg-cyan-500/10 flex items-center justify-center text-cyan-400 shadow-inner">
-                {billingType === 'B2B' ? <Building2 size={18} /> : <Info size={18} />}
-              </div>
-              <h2 className="text-lg font-bold text-white font-syne">Customer Selection</h2>
+              <h2 className="px-1 mt-1 text-lg font-bold text-white font-syne">Customer Selection</h2>
             </div>
 
-            {/* B2B / B2C Toggle */}
-            <div className="flex bg-slate-800 p-1 rounded-xl border border-slate-700">
+            {/* B2B / B2C Toggle and Walk-in */}
+            <div className="mt-2 flex items-center gap-3">
               <button
-                onClick={() => setBillingType('B2C')}
-                className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all duration-300 ${billingType === 'B2C' ? 'bg-cyan-500 text-slate-950 shadow-lg scale-105' : 'text-slate-500 hover:text-white'}`}
-              >B2C</button>
-              <button
-                onClick={() => setBillingType('B2B')}
-                className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all duration-300 ${billingType === 'B2B' ? 'bg-amber-500 text-slate-950 shadow-lg scale-105' : 'text-slate-500 hover:text-white'}`}
-              >B2B</button>
+                onClick={handleWalkInSelect}
+                className="px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 transition-all active:scale-95"
+              >
+                Walk-in
+              </button>
+              <div className="flex bg-slate-800 p-1 rounded-xl border border-slate-700">
+                <button
+                  onClick={() => setBillingType('B2C')}
+                  className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all duration-300 ${billingType === 'B2C' ? 'bg-cyan-500 text-slate-950 shadow-lg scale-105' : 'text-slate-500 hover:text-white'}`}
+                >B2C</button>
+                <button
+                  onClick={() => setBillingType('B2B')}
+                  className={`px-3 py-1.5 rounded-lg text-[10px] font-bold transition-all duration-300 ${billingType === 'B2B' ? 'bg-amber-500 text-slate-950 shadow-lg scale-105' : 'text-slate-500 hover:text-white'}`}
+                >B2B</button>
+              </div>
             </div>
           </div>
 
-          <div className="relative group">
+          <div className="mt-2 relative group">
             <input
               type="text"
               placeholder={billingType === 'B2B' ? "Enter Company Name..." : "Enter Customer Name..."}
@@ -635,7 +673,7 @@ export default function VoiceBilling({ onSuccess }) {
         </div>
       )}
 
-      {selectedCustomer && (
+      {selectedCustomer && selectedCustomer.phone !== '1111111111' && (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-2 duration-500">
           {/* Smart Suggestions */}
           <div className="space-y-3">
@@ -941,9 +979,9 @@ export default function VoiceBilling({ onSuccess }) {
         {invoice && (
           <div className="p-8 border-t border-slate-800 space-y-6">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center p-6 bg-slate-900/50 border border-slate-800 rounded-[2rem] gap-4">
-              <h2 className=" font-bold text-white font-mono text-lg"> Invoice Generated</h2>
+              <h2 className="text-white font-syne text-xl"> Invoice Generated</h2>
               <div className="flex flex-wrap gap-2">
-                <Button icon={Download} onClick={() => generateInvoicePDF(invoice)} className="bg-emerald-600 shadow-lg shadow-emerald-500/20">PDF</Button>
+                <Button icon={Download} onClick={() => generateInvoicePDF({ ...invoice, seller })} className="bg-emerald-600 shadow-lg shadow-emerald-500/20">PDF</Button>
                 <Button icon={RotateCcw} onClick={handleReset} variant="ghost" className="bg-slate-800 text-slate-300 hover:text-white border border-slate-700">New Bill</Button>
                 {invoice.status !== 'PAID' && invoice.status !== 'CANCELLED' && (
                   <>
@@ -965,7 +1003,7 @@ export default function VoiceBilling({ onSuccess }) {
                 )}
               </div>
             </div>
-            <InvoicePreview invoice={invoice} />
+            <InvoicePreview invoice={{ ...invoice, seller }} />
           </div>
         )}
 

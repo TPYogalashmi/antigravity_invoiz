@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import {
   FileText, Plus, Search, Filter, Loader2,
   ChevronRight, IndianRupee, Calendar, Clock,
@@ -9,6 +9,7 @@ import {
 import Button from '../components/ui/Button'
 import { backendClient } from '../api/axios'
 import toast from 'react-hot-toast'
+import { useAuthStore } from '../store/useAuthStore'
 import { InvoicePreview, generateInvoicePDF } from '../utils/InvoiceUtils'
 import VoiceBilling from './VoiceBilling'
 
@@ -16,7 +17,7 @@ const STATUS_CONFIG = {
   PAID: {
     label: 'Paid',
     icon: CheckCircle2,
-    className: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20 shadow-[0_0_15px_-5px_theme(colors.emerald.500)]'
+    className: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20'
   },
   UNPAID: {
     label: 'Unpaid',
@@ -41,7 +42,9 @@ const STATUS_CONFIG = {
 }
 
 export default function Invoices() {
+  const { user: seller } = useAuthStore()
   const navigate = useNavigate()
+  const { search: queryString } = useLocation()
   const [invoices, setInvoices] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
@@ -50,6 +53,15 @@ export default function Invoices() {
   const [timeBucket, setTimeBucket] = useState('ALL')
   const [minAmount, setMinAmount] = useState(null)
   const [totalInvoices, setTotalInvoices] = useState(0)
+
+  // Listen for query params to apply filters from dashboard
+  useEffect(() => {
+    const params = new URLSearchParams(queryString);
+    const status = params.get('status');
+    if (status) {
+      setStatusFilter(status);
+    }
+  }, [queryString]);
 
   // Modal State
   const [selectedInvoice, setSelectedInvoice] = useState(null)
@@ -192,8 +204,8 @@ export default function Invoices() {
     <div className="space-y-8 min-h-screen pb-20">
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
-          <h1 className="text-3xl font-bold text-white tracking-tight">Invoices</h1>
-          <p className="text-slate-500 mt-1 flex items-center gap-2">
+          <h1 className="px-1 text-2xl font-syne text-white">Invoices</h1>
+          <p className="px-1 text-slate-500 mt-1  text-sm flex items-center gap-2">
             Track your billing history and payment statuses
           </p>
         </div>
@@ -309,7 +321,7 @@ export default function Invoices() {
 
 
         <div className="flex flex-wrap gap-2 pt-2 items-center">
-          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mr-2">Timeline:</span>
+          <span className="px-2 text-[10px] font-bold text-slate-500 uppercase tracking-widest mr-2">Timeline:</span>
           {[
             { id: 'ALL', label: 'All Time' },
             { id: 'TODAY', label: 'Today' },
@@ -362,12 +374,12 @@ export default function Invoices() {
                   const StatusIcon = statusInfo.icon
                   return (
                     <tr key={inv.id} className="group hover:bg-slate-800/20 transition-all duration-300">
-                      <td className="px-8 py-6 font-mono text-xs text-cyan-400">#{inv.invoiceNumber}</td>
+                      <td className="px-8 py-6 text-sm text-white font-mono">{inv.invoiceNumber}</td>
                       <td className="px-6 py-6 tracking-tight">
-                        <p className="font-bold text-white">{inv.customer?.name || 'Walk-in'}</p>
+                        <p className="text-[14px] font-bold">{inv.customer?.name || 'Walk-in'}</p>
                         <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-0.5">{inv.customer?.taxId ? 'B2B' : 'B2C'}</p>
                       </td>
-                      <td className="px-6 py-6 font-bold text-white text-lg tracking-tighter">
+                      <td className="px-6 py-6 font-mono text-lg tracking-tighter">
                         <IndianRupee size={14} className="inline mr-1 text-cyan-500" />
                         {Number(inv.finalAmount).toFixed(2)}
                       </td>
@@ -384,24 +396,24 @@ export default function Invoices() {
                         </div>
                       </td>
                       <td className="px-8 py-6 text-right">
-                        <div className="flex items-center justify-end gap-2 transition-opacity duration-300">
+                        <div className="flex items-center justify-end gap-2 transition-all duration-300">
                           <button
                             onClick={() => { setSelectedInvoice(inv); setIsViewModalOpen(true); }}
-                            className="p-2 rounded-lg bg-slate-800 text-slate-300 hover:text-cyan-400 hover:bg-cyan-500/10 transition border border-slate-700/50"
+                            className="p-2.5 rounded-xl bg-slate-800/40 text-slate-400 hover:text-cyan-400 hover:bg-slate-700/50 transition shadow-sm border border-slate-800/50"
                             title="View Detail"
                           >
                             <Eye size={18} />
                           </button>
                           <button
-                            onClick={() => generateInvoicePDF(inv)}
-                            className="p-2 rounded-lg bg-slate-800 text-slate-300 hover:text-emerald-400 hover:bg-emerald-500/10 transition border border-slate-700/50"
+                            onClick={() => generateInvoicePDF({ ...inv, seller })}
+                            className="p-2.5 rounded-xl bg-slate-800/40 text-slate-400 hover:text-emerald-400 hover:bg-emerald-500/10 transition shadow-sm border border-slate-800/50"
                             title="Download PDF"
                           >
                             <Download size={18} />
                           </button>
                           <button
                             onClick={() => { setStatusInvoice(inv); setNewStatus(''); setIsStatusModalOpen(true); }}
-                            className="p-2 rounded-lg bg-slate-800 text-slate-300 hover:text-amber-400 hover:bg-amber-500/10 transition border border-slate-700/50"
+                            className="p-2.5 rounded-xl bg-slate-800/40 text-slate-400 hover:text-amber-400 hover:bg-amber-500/10 transition shadow-sm border border-slate-800/50"
                             title="Update Status"
                           >
                             <Edit3 size={18} />
@@ -468,9 +480,9 @@ export default function Invoices() {
       {/* --- INVOICE VIEW MODAL --- */}
       {isViewModalOpen && selectedInvoice && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm" onClick={() => setIsViewModalOpen(false)}></div>
+          <div className="absolute inset-0 bg-slate-950/20" onClick={() => setIsViewModalOpen(false)}></div>
 
-          <div className="relative w-full max-w-4xl max-h-[95vh] overflow-y-auto rounded-[2rem] bg-slate-900 border border-slate-800 shadow-2xl animate-in zoom-in-95 duration-200">
+          <div className="relative w-full max-w-4xl max-h-[95vh] overflow-y-auto rounded-[2rem] bg-slate-900 border border-slate-800 shadow-[0_20px_50px_rgba(0,0,0,0.6)] animate-in zoom-in-95 duration-200">
             <div className="sticky top-0 z-20 flex items-center justify-between p-6 bg-slate-900/80 backdrop-blur-md border-b border-slate-800">
               <div className="flex items-center gap-3">
                 <FileText size={24} className="text-cyan-400" />
@@ -478,7 +490,7 @@ export default function Invoices() {
               </div>
               <div className="flex items-center gap-3">
                 <button
-                  onClick={() => generateInvoicePDF(selectedInvoice)}
+                  onClick={() => generateInvoicePDF({ ...selectedInvoice, seller })}
                   className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl transition shadow-lg shadow-emerald-500/20 text-sm font-bold flex items-center gap-2"
                 >
                   <Download size={16} /> PDF
@@ -491,7 +503,7 @@ export default function Invoices() {
 
             <div className="p-8">
               <div className="bg-white rounded-2xl p-1 shadow-inner overflow-hidden">
-                <InvoicePreview invoice={selectedInvoice} />
+                <InvoicePreview invoice={{ ...selectedInvoice, seller }} />
               </div>
             </div>
           </div>
@@ -501,9 +513,9 @@ export default function Invoices() {
       {/* --- STATUS UPDATE MODAL --- */}
       {isStatusModalOpen && statusInvoice && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-slate-950/90 backdrop-blur-md" onClick={() => setIsStatusModalOpen(false)}></div>
+          <div className="absolute inset-0 bg-slate-950/20" onClick={() => setIsStatusModalOpen(false)}></div>
 
-          <div className="relative w-full max-w-md rounded-[2.5rem] bg-slate-900 border border-slate-800 shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+          <div className="relative w-full max-w-md rounded-[2.5rem] bg-slate-900 border border-slate-800 shadow-[0_20px_50px_rgba(0,0,0,0.6)] overflow-hidden animate-in zoom-in-95 duration-200">
             <div className="p-8">
               <div className="flex justify-between items-start mb-6">
                 <div>
@@ -590,9 +602,9 @@ export default function Invoices() {
       {/* --- VOICE BILLING MODAL --- */}
       {isVoiceModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-sm" onClick={() => setIsVoiceModalOpen(false)}></div>
+          <div className="absolute inset-0 bg-slate-950/20" onClick={() => setIsVoiceModalOpen(false)}></div>
 
-          <div className="relative w-full max-w-4xl max-h-[95vh] overflow-y-auto rounded-[2.5rem] bg-slate-950 border border-slate-800 shadow-2xl animate-in fade-in-0 zoom-in-95 duration-300">
+          <div className="relative w-full max-w-4xl max-h-[95vh] overflow-y-auto rounded-[2.5rem] bg-slate-950 border border-slate-800 shadow-[0_20px_50px_rgba(0,0,0,0.6)] animate-in fade-in-0 zoom-in-95 duration-300">
             <div className="sticky top-0 z-20 flex items-center justify-between p-6 bg-slate-950/80 backdrop-blur-md border-b border-slate-900">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-2xl bg-cyan-500/10 flex items-center justify-center">

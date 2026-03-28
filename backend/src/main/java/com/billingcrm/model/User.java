@@ -22,14 +22,36 @@ public class User {
     @Column(nullable = false)
     private String name;
 
+    @Column
+    private String shopName;
+
     @Email
     @NotBlank
     @Column(nullable = false, unique = true)
     private String email;
 
+    @Column
+    private String phoneNo;
+
     @NotBlank
     @Column(nullable = false)
     private String password;
+
+    @Column
+    @Builder.Default
+    private Boolean isGstRegistered = false;
+
+    @Column
+    private String gstNo;
+
+    // Address fields
+    @Column private String doorNo;
+    @Column private String streetName;
+    @Column private String landmark;
+    @Column private String area;
+    @Column private String city;
+    @Column private String state;
+    @Column private String pincode;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)

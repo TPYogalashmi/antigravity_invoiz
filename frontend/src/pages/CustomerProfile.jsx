@@ -4,7 +4,7 @@ import {
   User, Phone, Calendar, Building2, CreditCard, MapPin,
   ShoppingBag, History, Sparkles, TrendingUp, ArrowLeft,
   ChevronRight, BadgeCheck, AlertCircle, Clock, MoreVertical,
-  Loader2, CheckCircle, XCircle
+  Loader2, CheckCircle, XCircle, Mail
 } from 'lucide-react';
 import { backendClient } from '../api/axios';
 import Button from '../components/ui/Button';
@@ -43,7 +43,10 @@ export default function CustomerProfile() {
   const visitsLast30Days = profile?.visitsLast30Days || 0;
   const b2bDiscount = visitsLast30Days < 10 ? 10 : 20;
   const b2cDefault = 0;
-  const currentStagedDiscount = isB2B ? b2bDiscount : (customer?.agreedDiscount != null ? customer.agreedDiscount : b2cDefault);
+  // Prioritize manual agreedDiscount if set, then B2B tiers, then B2C default
+  const currentStagedDiscount = (customer?.agreedDiscount != null && customer.agreedDiscount > 0)
+    ? customer.agreedDiscount
+    : (isB2B ? b2bDiscount : b2cDefault);
 
   useEffect(() => {
     if (customer) {
@@ -116,6 +119,109 @@ export default function CustomerProfile() {
   const unpaidBillsOnly = recentTransactions.filter(tx => tx.status === 'UNPAID');
   const overdueBillsOnly = recentTransactions.filter(tx => tx.status === 'OVERDUE');
 
+  const isWalkIn = customer?.phone === '1111111111';
+
+  if (isWalkIn) {
+    return (
+      <div className="max-w-6xl mx-auto space-y-10 animate-in fade-in duration-500 font-dm pb-20">
+        {/* Simplified Header */}
+        <div className="flex items-center gap-4">
+          <button
+            onClick={() => navigate('/customers')}
+            className="p-3 rounded-2xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-white transition-all hover:bg-slate-800 group"
+          >
+            <ArrowLeft size={20} className="group-hover:-translate-x-1 transition-transform" />
+          </button>
+          <div>
+            <h1 className="font-syne text-2xl font-bold text-white tracking-tight">Walk-in Analysis</h1>
+            <p className="text-[10px] text-slate-500 uppercase tracking-[0.2em] font-black mt-0.5">Generic Consumer Behavior Patterns</p>
+          </div>
+        </div>
+
+        {/* Centralized Insight Dashboard */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Identity Card */}
+          <div className="lg:col-span-1 bg-slate-900/50 border border-slate-800 rounded-[2.5rem] p-8 relative overflow-hidden shadow-xl ">
+            
+            <div className="space-y-6">
+              <div>
+                <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest mb-3">Customer Identity</p>
+                <h2 className="text-3xl font-bold text-white font-syne tracking-tight">Walk-in</h2>
+                <div className="flex items-center gap-2 text-cyan-500 font-mono text-sm mt-2 opacity-80">
+                  <Phone size={14} />
+                  <span>{customer.phone}</span>
+                </div>
+              </div>
+
+              <div className="pt-6 border-t border-slate-800/50">
+                <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest mb-4">Engagement stats</p>
+                <div className="grid grid-cols-1 gap-4">
+                  <div className="bg-slate-950/50 p-4 rounded-2xl border border-slate-800 flex justify-between items-center">
+                    <span className="text-xs font-bold text-slate-400 uppercase">Visits</span>
+                    <span className="text-xl font-black text-white font-mono">{totalOrders}</span>
+                  </div>
+                  <div className="bg-slate-950/50 p-4 rounded-2xl border border-slate-800 flex justify-between items-center">
+                    <span className="text-xs font-bold text-slate-400 uppercase">Frequency</span>
+                    <span className="text-xs font-black text-emerald-400 uppercase tracking-widest">{visitFrequency}</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-4 rounded-2xl bg-cyan-500/5 border border-cyan-500/10 mt-4">
+                <p className="text-[10px] text-slate-500 font-medium leading-relaxed italic">
+                  * Note: Profile limited to generic purchase data for non-registered users.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Frequent Items Card */}
+          <div className="lg:col-span-2 bg-slate-900/50 border border-slate-800 rounded-[2.5rem] p-8 relative overflow-hidden shadow-xl">
+            <div className="flex items-center justify-between mb-8">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-cyan-500/10 flex items-center justify-center text-cyan-400 border border-cyan-500/20 shadow-inner">
+                  <ShoppingBag size={20} />
+                </div>
+                <h3 className="text-xl font-bold text-white font-syne tracking-tight uppercase tracking-wider">Top 5 Trending Items</h3>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              {frequentItems.slice(0, 5).map((item, i) => (
+                <div key={i} className="group bg-slate-950/40 border border-slate-800/50 hover:border-cyan-500/30 p-5 rounded-3xl transition-all duration-300 flex items-center justify-between">
+                  <div className="flex items-center gap-5">
+                    <div className="w-10 h-10 rounded-xl bg-slate-900 flex items-center justify-center text-slate-500 font-black text-sm border border-slate-800 group-hover:text-cyan-400 group-hover:border-cyan-500/30 transition-all">
+                      {i + 1}
+                    </div>
+                    <div>
+                      <p className="text-md font-bold text-white group-hover:text-cyan-400 transition-colors uppercase tracking-tight">{item.name}</p>
+                      <p className="text-[9px] text-slate-600 uppercase font-black tracking-widest mt-1">{item.alias || 'REGULAR INVENTORY'}</p>
+                    </div>
+                  </div>
+
+                  <div className="text-right">
+                    <div className="flex items-baseline gap-1 justify-end">
+                      <p className="text-xl font-black text-white font-mono tracking-tighter">{item.avgQuantity % 1 === 0 ? item.avgQuantity : item.avgQuantity.toFixed(1)}</p>
+                      <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">{item.unit || 'PCS'}</p>
+                    </div>
+                    <p className="text-[9px] text-slate-700 font-black uppercase tracking-widest mt-0.5">Average / Bill</p>
+                  </div>
+                </div>
+              ))}
+
+              {frequentItems.length === 0 && (
+                <div className="py-20 text-center opacity-20">
+                  <ShoppingBag size={48} className="mx-auto text-slate-700 mb-4" />
+                  <p className="text-[10px] font-black uppercase tracking-widest">No consumption data found</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8 animate-in fade-in duration-500 font-dm pb-10">
       {/* Page Title & Back Button */}
@@ -142,85 +248,123 @@ export default function CustomerProfile() {
 
           {/* Detailed Info Card */}
           <div className="bg-slate-900/50 border border-slate-800 rounded-[2.5rem] p-8 relative overflow-hidden">
-            <div className={`absolute top-0 right-0 w-64 h-64 ${isB2B ? 'bg-amber-500/5' : 'bg-cyan-500/5'} blur-[100px] -z-10`} />
 
             <div className="flex flex-col md:flex-row gap-8 items-start">
-
               <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-8">
-                {/* Column 1 */}
+                {/* Column 1: Identity, Contact & Membership */}
                 <div className="space-y-6">
                   <div>
-                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Name</p>
-                    <p className="text-xl font-bold text-white font-syne lowercase first-letter:uppercase">{customer.name}</p>
+                    <p className="text-[13px] font-bold text-slate-500 uppercase tracking-widest mb-1">Name</p>
+                    <p className="text-ml text-white font-syne lowercase first-letter:uppercase mb-6">{customer.name}</p>
                   </div>
                   <div>
-                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Phone</p>
-                    <div className="flex items-center gap-2 text-slate-300 font-mono italic">
+                    <p className="text-[13px] font-bold text-slate-500 uppercase tracking-widest mt-4 mb-1">Phone</p>
+                    <div className="flex items-center gap-2 text-slate-300 font-mono text-ml mb-6">
                       <Phone size={14} className="text-cyan-400" />
                       <span>{customer.phone || 'Not provided'}</span>
                     </div>
                   </div>
+                  {isB2B && customer.email && (
+                    <div>
+                      <p className="text-[13px] font-bold text-slate-500 uppercase tracking-widest mb-1">Email</p>
+                      <div className="flex items-center gap-2 text-slate-300 font-mono text-ml mb-6">
+                        <Mail size={16} className="text-indigo-400" />
+                        <span>{customer.email}</span>
+                      </div>
+                    </div>
+                  )}
                   <div>
-                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Member Since</p>
-                    <div className="flex items-center gap-2 text-slate-300">
-                      <Calendar size={14} className="text-indigo-400" />
-                      <span>{new Date(customer.createdAt).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })}</span>
+                    <p className="text-[13px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Member Since</p>
+                    <div className=" text-[13px] flex items-center gap-2 text-slate-300 font-mono text-sm">
+                      <Calendar size={16} className="text-emerald-400" />
+                      <span className="font-mono text-[16px]">{new Date(customer.createdAt).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })}</span>
                     </div>
                   </div>
                 </div>
 
-                {/* Column 2 */}
+                {/* Column 2: Business & Location */}
                 <div className="space-y-6">
                   <div>
-                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Account Type</p>
-                    <span className={`px-4 py-1.5 rounded-full text-[10px] font-black uppercase tracking-widest border shadow-xl ${isB2B ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' : 'bg-cyan-500/10 text-cyan-500 border-cyan-500/20'}`}>
+                    <p className="text-[12px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Account Type</p>
+                    <span className={`px-4 py-1.5 rounded-full text-[12px] font-black uppercase tracking-widest border shadow-xl ${isB2B ? 'bg-amber-500/10 text-amber-500 border-amber-500/20' : 'bg-cyan-500/10 text-cyan-500 border-cyan-500/20'}`}>
                       {isB2B ? 'B2B Enterprise' : 'B2C Individual'}
                     </span>
                   </div>
-                  {customer.company && (
-                    <div>
-                      <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">Company Name</p>
-                      <div className="flex items-center gap-2 text-slate-300 font-bold">
-                        <Building2 size={14} className="text-amber-400" />
-                        <span>{customer.company}</span>
+
+                  {isB2B ? (
+                    <>
+                      <div>
+                        <p className="text-[13px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Company Name</p>
+                        <div className="flex items-center gap-2 text-slate-300 font-mono italic text-ml">
+                          <Building2 size={16} className="text-amber-400" />
+                          <span>{customer.company || '—'}</span>
+                        </div>
                       </div>
-                    </div>
-                  )}
-                  {customer.taxId && (
-                    <div>
-                      <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">GST Number</p>
-                      <div className="flex items-center gap-2 text-slate-300 font-black">
-                        <CreditCard size={14} className="text-emerald-400" />
-                        <span className="tracking-widest">{customer.taxId}</span>
+                      <div>
+                        <p className="text-[13px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">GST Number</p>
+                        <div className="flex items-center gap-2 text-slate-300 font-mono text-ml">
+                          <CreditCard size={16} className="text-emerald-400" />
+                          <span className="font-mono text-ml">{customer.taxId || '—'}</span>
+                        </div>
                       </div>
-                    </div>
+                      {(customer.address || customer.city) && (
+                        <div>
+                          <p className="text-[13px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Address</p>
+                          <div className="flex items-start gap-2 text-slate-300 font-mono text-ml">
+                            <MapPin size={16} className="text-rose-400 mt-1" />
+                            <div>
+                              <p>{[customer.address, customer.city].filter(Boolean).join(', ')}</p>
+                              {customer.state && (
+                                <p className="text-[14px] text-slate-500 not-italic font-bold uppercase mt-1">
+                                  {customer.state} {customer.postalCode ? `- ${customer.postalCode}` : ''}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  ) : (
+                    <>
+                      <div>
+                        <p className="text-[13px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Email</p>
+                        <div className="flex items-center gap-2 text-slate-300 font-mono text-ml">
+                          <Mail size={16} className="text-indigo-400" />
+                          <span>{customer.email || '—'}</span>
+                        </div>
+                      </div>
+                      {(customer.address || customer.city) && (
+                        <div>
+                          <p className="text-[13px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Location Details</p>
+                          <div className="flex items-start gap-2 text-slate-300 font-mono text-ml">
+                            <MapPin size={16} className="text-rose-400 mt-1" />
+                            <div>
+                              <p>{[customer.address, customer.city].filter(Boolean).join(', ')}</p>
+                              {customer.state && (
+                                <p className="text-[13px] text-slate-500 not-italic font-bold uppercase mt-1">
+                                  {customer.state} {customer.postalCode ? `- ${customer.postalCode}` : ''}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               </div>
             </div>
 
-            {/* Optional Address */}
-            {(customer.address || customer.city) && (
-              <div className="mt-10 pt-8 border-t border-slate-800 flex items-start gap-3 text-slate-400">
-                <MapPin size={16} className="text-slate-600 mt-1" />
-                <p className="text-sm leading-relaxed">
-                  {customer.address}{customer.address && customer.city && ', '}{customer.city}
-                  {customer.postalCode && ` - ${customer.postalCode}`}
-                </p>
-              </div>
-            )}
           </div>
 
           {/* Row 2: Two Boxes (Smart Pricing & Unpaid Bills) */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className={`bg-gradient-to-br from-slate-900 to-slate-950 border ${isB2B ? 'border-amber-500/20' : 'border-indigo-500/20'} rounded-[2rem] p-8 relative overflow-hidden group shadow-2xl`}>
-              <div className={`absolute -top-10 -right-10 w-40 h-40 ${isB2B ? 'bg-amber-500/10' : 'bg-indigo-500/10'} blur-[80px] group-hover:opacity-100 opacity-50 transition-all duration-700`} />
-
+            <div className={`bg-gradient-to-br from-slate-900 to-slate-950 border border-slate-800 rounded-[2rem] p-8 relative overflow-hidden group shadow-2xl`}>
               <div className="flex items-center gap-3 mb-6">
                 <div className={`w-10 h-10 rounded-2xl ${isB2B ? 'bg-amber-500/10 text-amber-400 border-amber-500/20' : 'bg-indigo-500/10 text-indigo-400 border-indigo-500/20'} flex items-center justify-center border`}>
                   <Sparkles size={20} />
                 </div>
-                <h3 className="font-syne font-bold text-white">{isB2B ? 'B2B Loyalty Logic' : 'B2C Targeted Reward'}</h3>
+                <h3 className="font-syne font-bold text-white">{isB2B ? 'B2B Discounts' : 'B2C Targeted Reward'}</h3>
               </div>
 
               <div className="space-y-6">
@@ -237,7 +381,7 @@ export default function CustomerProfile() {
                   </div>
                 </div>
 
-                <div className={`p-4 rounded-2xl border ${isB2B ? 'bg-amber-500/5 border-amber-500/10' : 'bg-indigo-500/5 border-indigo-500/10'}`}>
+                <div className="p-4 rounded-2xl border bg-slate-800/20 border-slate-700/50">
                   <div className="flex items-center gap-2 mb-0">
                     <TrendingUp size={12} className={isB2B ? 'text-amber-400' : 'text-emerald-400'} />
                     <p className={`text-[10px] font-bold uppercase ${isB2B ? 'text-amber-500' : 'text-indigo-300'}`}>{isB2B ? 'Volume Strategy' : 'Product Strategy'}</p>
@@ -250,31 +394,29 @@ export default function CustomerProfile() {
                   </p>
                 </div>
 
-                {!isB2B && (
-                  isEditingDiscount ? (
-                    <div className="flex items-center gap-2 animate-in slide-in-from-top-2 duration-300">
-                      <input
-                        type="number"
-                        value={discountValue}
-                        onChange={(e) => setDiscountValue(e.target.value)}
-                        className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-4 py-2 text-sm font-bold text-white focus:outline-none focus:border-indigo-500"
-                        placeholder="%"
-                      />
-                      <button
-                        onClick={() => handleUpdateDiscount(discountValue)}
-                        className="px-4 py-2 bg-indigo-500 text-slate-950 font-bold text-[10px] uppercase rounded-xl transition-all hover:scale-105 active:scale-95"
-                      >
-                        Save
-                      </button>
-                    </div>
-                  ) : (
+                {isEditingDiscount ? (
+                  <div className="flex items-center gap-2 animate-in slide-in-from-top-2 duration-300">
+                    <input
+                      type="number"
+                      value={discountValue}
+                      onChange={(e) => setDiscountValue(e.target.value)}
+                      className="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-4 py-2 text-sm font-bold text-white focus:outline-none focus:border-indigo-500"
+                      placeholder="%"
+                    />
                     <button
-                      onClick={() => setIsEditingDiscount(true)}
-                      className="w-full py-3 bg-slate-900/50 hover:bg-slate-900 text-slate-400 hover:text-white font-bold text-[10px] uppercase tracking-widest rounded-2xl border border-slate-800 transition-all flex items-center justify-center gap-2"
+                      onClick={() => handleUpdateDiscount(discountValue)}
+                      className="px-4 py-2 bg-indigo-500 text-slate-950 font-bold text-[10px] uppercase rounded-xl transition-all hover:scale-105 active:scale-95"
                     >
-                      Customize Default
+                      Save
                     </button>
-                  )
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setIsEditingDiscount(true)}
+                    className="w-full py-3 bg-slate-900/50 hover:bg-slate-900 text-slate-400 hover:text-white font-bold text-[10px] uppercase tracking-widest rounded-2xl border border-slate-800 transition-all flex items-center justify-center gap-2"
+                  >
+                    Customize Default
+                  </button>
                 )}
               </div>
             </div>
@@ -473,7 +615,7 @@ export default function CustomerProfile() {
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
-                  <p className="text-[16px] font-bold text-slate-600 uppercase">Total Orders</p>
+                  <p className="text-[14px] font-bold text-slate-600 uppercase">Total Orders</p>
                   <p className="text-xl font-black text-white font-mono">{totalOrders}</p>
                 </div>
                 <div className="p-2 bg-white/5 rounded-xl">
@@ -482,21 +624,21 @@ export default function CustomerProfile() {
               </div>
 
               <div className="space-y-2">
-                <div className="flex justify-between items-center text-[17px]">
+                <div className="flex justify-between items-center text-[14px]">
                   <span className="text-slate-500 font-bold">Total Spend</span>
                   <span className="text-white font-black font-mono">₹{totalSpend?.toLocaleString('en-IN')}</span>
                 </div>
-                <div className="flex justify-between items-center text-[17px] border-b border-slate-800 pb-2 mb-2 ">
+                <div className="flex justify-between items-center text-[14px] border-b border-slate-800 pb-2 mb-2 ">
                   <span className="text-slate-500 font-bold">Avg Spend</span>
                   <span className="text-white font-black font-mono">₹{avgSpend?.toLocaleString('en-IN')}</span>
                 </div>
-                <div className="flex justify-between items-center text-[17px] ">
+                <div className="flex justify-between items-center text-[14px] ">
                   <span className="text-slate-500 font-bold">Last Visit</span>
                   <span className="text-slate-300 font-mono text-[17px]">{lastVisit ? new Date(lastVisit).toLocaleDateString('en-GB') : 'Never'}</span>
                 </div>
 
                 <div className="pt-2">
-                  <p className="text-[13px] font-bold text-slate-600 uppercase tracking-widest mb-1.5 transition-opacity group-hover:opacity-100">Visit Frequency</p>
+                  <p className="text-[12px] font-bold text-slate-600 uppercase tracking-widest mb-1 transition-opacity group-hover:opacity-100">Visit Frequency</p>
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-1.5">
                       <div className={`w-1.5 h-1.5 rounded-full shadow-[0_0_8px] ${visitFrequency === 'Frequent' ? 'bg-emerald-500 shadow-emerald-500/50' : visitFrequency === 'Regular' ? 'bg-amber-500 shadow-amber-500/50' : 'bg-rose-500 shadow-rose-500/50'}`} />
@@ -574,13 +716,13 @@ export default function CustomerProfile() {
                                     placeholder="%"
                                   />
                                   <div className="flex items-center gap-1">
-                                    <button 
+                                    <button
                                       onClick={() => handleUpdateProductDiscount(item.productId, newProductDiscount)}
                                       className="p-1 hover:bg-emerald-500/20 text-emerald-400 rounded transition-colors"
                                     >
                                       <CheckCircle size={14} />
                                     </button>
-                                    <button 
+                                    <button
                                       onClick={() => setEditingProductId(null)}
                                       className="p-1 hover:bg-rose-500/20 text-rose-400 rounded transition-colors"
                                     >
@@ -619,13 +761,13 @@ export default function CustomerProfile() {
                                     placeholder="%"
                                   />
                                   <div className="flex items-center gap-1">
-                                    <button 
+                                    <button
                                       onClick={() => handleUpdateProductDiscount(item.productId, newProductDiscount)}
                                       className="p-1 hover:bg-emerald-500/20 text-emerald-400 rounded transition-colors"
                                     >
                                       <CheckCircle size={14} />
                                     </button>
-                                    <button 
+                                    <button
                                       onClick={() => setEditingProductId(null)}
                                       className="p-1 hover:bg-rose-500/20 text-rose-400 rounded transition-colors"
                                     >

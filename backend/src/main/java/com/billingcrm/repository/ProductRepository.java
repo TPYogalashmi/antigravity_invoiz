@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @Repository
@@ -45,4 +46,17 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
             ORDER BY COUNT(DISTINCT i.id) DESC
             """)
     List<Object[]> findTopProductsWithAvgQtyByCustomer(@Param("customerId") Long customerId, Pageable pageable);
+
+    @Query("""
+            SELECT p.name, AVG(ii.quantity) FROM Product p
+            JOIN InvoiceItem ii ON ii.product.id = p.id
+            JOIN Invoice i ON ii.invoice.id = i.id
+            WHERE i.issueDate = :date
+            GROUP BY p.id
+            ORDER BY SUM(ii.quantity) DESC
+            """)
+    List<Object[]> findTopProductsByDate(@Param("date") LocalDate date, Pageable pageable);
+
+    @Query("SELECT p FROM Product p WHERE p.status = 'OUT_OF_STOCK'")
+    List<Product> findOutOfStockProducts();
 }

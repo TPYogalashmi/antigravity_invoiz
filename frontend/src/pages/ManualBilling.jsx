@@ -8,10 +8,12 @@ import {
 import { useNavigate } from 'react-router-dom'
 import { backendClient } from '../api/axios'
 import toast from 'react-hot-toast'
-import Button from '../components/ui/Button'
+import { useAuthStore } from '../store/useAuthStore'
 import { InvoicePreview, generateInvoicePDF } from '../utils/InvoiceUtils'
+import Button from '../components/ui/Button'
 
 const ManualBilling = () => {
+  const { user: seller } = useAuthStore()
   const navigate = useNavigate()
 
   // --- Form State ---
@@ -210,6 +212,37 @@ const ManualBilling = () => {
     }
   }
 
+  const handleWalkInSelect = async () => {
+    try {
+      const resp = await backendClient.get('/customers', {
+        params: { search: '1111111111', size: 1 }
+      })
+      const found = resp.data?.data?.content?.find(c => c.phone === '1111111111')
+
+      if (found) {
+        setSelectedCustomer(found)
+        fetchCustomerDetails(found.id)
+        toast.success('Walk-in selected')
+      } else {
+        if (window.confirm('Walk-in Customer record not found. Create it now?')) {
+          const createResp = await backendClient.post('/customers', {
+            name: 'Walk-in Customer',
+            phone: '1111111111',
+            status: 'ACTIVE'
+          })
+          const newCust = createResp.data?.data
+          if (newCust) {
+            setSelectedCustomer(newCust)
+            fetchCustomerDetails(newCust.id)
+            toast.success('Walk-in created & selected')
+          }
+        }
+      }
+    } catch (err) {
+      toast.error('Failed to select walk-in customer')
+    }
+  }
+
   const handleUpdateStatus = async (status) => {
     if (!createdInvoice) return
     setIsUpdatingStatus(true)
@@ -248,21 +281,21 @@ const ManualBilling = () => {
 
   if (createdInvoice) {
     return (
-      <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center p-8 bg-slate-900 border border-slate-800 rounded-[2.5rem] gap-6 shadow-2xl relative overflow-visible">
+      <div className="fixed inset-0 z-50 bg-slate-950/20 flex flex-col items-center justify-start overflow-y-auto p-4 md:p-10 custom-scrollbar">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center p-8 bg-slate-900 border border-slate-800 rounded-[2.5rem] gap-6 shadow-[0_20px_50px_rgba(0,0,0,0.6)] relative overflow-visible">
           <div className="flex items-center gap-4">
             <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-emerald-400 border border-emerald-500/20 shadow-inner">
               <CheckCircle2 size={28} />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-white font-syne tracking-tight">Invoice Generated</h1>
+              <h1 className="text-xl font-bold text-white font-syne">Invoice Generated</h1>
               <p className="text-[11px] font-mono text-cyan-400 font-black uppercase tracking-widest mt-0.5 opacity-80">Ref: {createdInvoice.invoiceNumber}</p>
             </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
             <button
-              onClick={() => generateInvoicePDF(createdInvoice)}
+              onClick={() => generateInvoicePDF({ ...createdInvoice, seller })}
               className="flex items-center gap-2 px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-[11px] uppercase tracking-widest rounded-2xl shadow-lg shadow-emerald-500/20 transition-all active:scale-95"
             >
               <Download size={14} /> PDF
@@ -296,7 +329,7 @@ const ManualBilling = () => {
           </div>
         </div>
 
-        <InvoicePreview invoice={createdInvoice} />
+        <InvoicePreview invoice={{ ...createdInvoice, seller }} />
       </div>
     )
   }
@@ -328,15 +361,23 @@ const ManualBilling = () => {
               </div>
 
               {/* B2B / B2C Toggle */}
-              <div className="flex bg-slate-800 p-1.5 rounded-xl border border-slate-700 shadow-lg">
+              <div className="flex items-center gap-3">
                 <button
-                  onClick={() => { setBillingType('B2C'); setSelectedCustomer(null); setCustomerSearch(''); }}
-                  className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all duration-300 ${billingType === 'B2C' ? 'bg-cyan-500 text-slate-950 shadow-xl scale-105' : 'text-slate-500 hover:text-white'}`}
-                >B2C Entry</button>
-                <button
-                  onClick={() => { setBillingType('B2B'); setSelectedCustomer(null); setCustomerSearch(''); }}
-                  className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all duration-300 ${billingType === 'B2B' ? 'bg-amber-500 text-slate-950 shadow-xl scale-105' : 'text-slate-500 hover:text-white'}`}
-                >B2B Corporate</button>
+                  onClick={handleWalkInSelect}
+                  className="px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500/20 transition-all active:scale-95"
+                >
+                  Walk-in
+                </button>
+                <div className="flex bg-slate-800 p-1.5 rounded-xl border border-slate-700 shadow-lg">
+                  <button
+                    onClick={() => { setBillingType('B2C'); setSelectedCustomer(null); setCustomerSearch(''); }}
+                    className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all duration-300 ${billingType === 'B2C' ? 'bg-cyan-500 text-slate-950 shadow-xl scale-105' : 'text-slate-500 hover:text-white'}`}
+                  >B2C Entry</button>
+                  <button
+                    onClick={() => { setBillingType('B2B'); setSelectedCustomer(null); setCustomerSearch(''); }}
+                    className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all duration-300 ${billingType === 'B2B' ? 'bg-amber-500 text-slate-950 shadow-xl scale-105' : 'text-slate-500 hover:text-white'}`}
+                  >B2B Corporate</button>
+                </div>
               </div>
             </div>
 
@@ -346,7 +387,7 @@ const ManualBilling = () => {
               </div>
               <input
                 type="text"
-                placeholder={billingType === 'B2B' ? "Search Company or Tax ID..." : "Search Customer Name or Phone..."}
+                placeholder={billingType === 'B2B' ? "Search Company or Phone Number..." : "Search Customer Name or Phone Number..."}
                 value={selectedCustomer ? (selectedCustomer.name || selectedCustomer.company) : customerSearch}
                 readOnly={!!selectedCustomer}
                 onChange={(e) => setCustomerSearch(e.target.value)}
@@ -370,8 +411,8 @@ const ManualBilling = () => {
                           disabled={c.status === 'SUSPENDED'}
                           onClick={() => { setSelectedCustomer(c); setShowCustomerDropdown(false); fetchCustomerDetails(c.id); }}
                           className={`w-full flex items-center justify-between px-6 py-4 transition border-b border-slate-800/50 last:border-0 group/item ${c.status === 'SUSPENDED'
-                              ? 'bg-slate-900/40 opacity-50 cursor-not-allowed'
-                              : 'hover:bg-slate-800'
+                            ? 'bg-slate-900/40 opacity-50 cursor-not-allowed'
+                            : 'hover:bg-slate-800'
                             }`}
                         >
                           <div className="text-left">
@@ -389,8 +430,8 @@ const ManualBilling = () => {
                           </div>
                           <div className="text-right flex flex-col items-end">
                             <span className={`text-[9px] font-black px-2 py-0.5 rounded-full border ${c.status === 'SUSPENDED'
-                                ? 'border-slate-800 text-slate-600'
-                                : c.taxId ? 'border-cyan-500/30 text-cyan-500 bg-cyan-500/5' : 'border-slate-700 text-slate-500'
+                              ? 'border-slate-800 text-slate-600'
+                              : c.taxId ? 'border-cyan-500/30 text-cyan-500 bg-cyan-500/5' : 'border-slate-700 text-slate-500'
                               }`}>
                               {c.taxId ? 'GST REGISTERED' : 'REGULAR'}
                             </span>
@@ -555,10 +596,10 @@ const ManualBilling = () => {
               <div className="w-10 h-10 rounded-xl bg-cyan-500/10 flex items-center justify-center text-cyan-400 shadow-inner">
                 <FileText size={20} />
               </div>
-              <h2 className="text-xl font-bold text-white font-syne">Bill Summary</h2>
+              <h2 className="text-lg font-bold text-white font-syne">Bill Summary</h2>
             </div>
 
-            <div className="space-y-4 mb-8">
+            <div className="space-y-3 mb-0">
               <div className="flex justify-between text-sm text-slate-500">
                 <span className="font uppercase tracking-widest text-[13px]">Items</span>
                 <span className="text-white font-black">{items.length}</span>
@@ -569,16 +610,16 @@ const ManualBilling = () => {
               </div>
               <div className="flex justify-between text-sm text-slate-500">
                 <span className="font uppercase tracking-widest text-[13px]">Discount</span>
-                <span className="text-rose-400 font-bold">- ₹{discountAmount.toFixed(2)}</span>
+                <span className="text-emerald-500/80 font-bold">- ₹{discountAmount.toFixed(2)}</span>
               </div>
               <div className="flex justify-between text-sm text-slate-500">
                 <span className="font uppercase tracking-widest text-[13px]">Tax Charged</span>
-                <span className="text-emerald-500/80 font-bold">₹{totalTax.toFixed(2)}</span>
+                <span className="text-slate-300 font-bold">₹{totalTax.toFixed(2)}</span>
               </div>
 
               <div className="flex justify-between border-t border-slate-800 pt-6 mt-6">
                 <span className="text-[13px] font-bold uppercase tracking-widest text-slate-500">Total Payable</span>
-                <span className="text-2xl font-black text-white tracking-tighter">₹{finalTotal.toFixed(2)}</span>
+                <span className="text-xl font-black text-white tracking-tighter">₹{finalTotal.toFixed(2)}</span>
               </div>
 
               <Button
@@ -594,15 +635,10 @@ const ManualBilling = () => {
           </div>
 
           {/* Approved Discounts Card */}
-          {selectedCustomer && (
-            <div className="p-8 rounded-[2.5rem] bg-slate-900/50 border border-slate-800 backdrop-blur-md shadow-xl animate-in fade-in slide-in-from-right-2 duration-400">
-              <div className="flex items-center gap-3 mb-6">
-                <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-400 border border-indigo-500/20">
-                  <ShoppingCart size={20} />
-                </div>
-                <h2 className="text-lg font-bold text-white font-syne">Approved Discounts</h2>
-              </div>
-              <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+          {selectedCustomer && selectedCustomer.phone !== '1111111111' && (
+            <div className="p-6 rounded-[2.5rem] bg-slate-900/50 border border-slate-800 backdrop-blur-md shadow-xl animate-in fade-in slide-in-from-right-2 duration-400">
+              <h2 className="text-lg font-bold text-white font-syne px-2 mb-2">Approved Discounts</h2>
+              <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
                 {billingType === 'B2B' ? (
                   <div className="p-5 rounded-2xl bg-indigo-500/5 border border-indigo-500/20 flex flex-col gap-3">
                     <div className="flex items-center justify-between">
@@ -641,8 +677,8 @@ const ManualBilling = () => {
                       </div>
                     ))
                   ) : (
-                    <div className="text-center py-10">
-                      <p className="text-[10px] font-black uppercase text-slate-700 tracking-[0.2em] leading-relaxed px-4">No active rewards set yet for B2C customer.</p>
+                    <div className="text-center py-7">
+                      <p className="text-[10px] font-black uppercase text-slate-700 tracking-[0.2em] leading-relaxed px-4">No active rewards set yet for this customer.</p>
                     </div>
                   )
                 )}
