@@ -121,9 +121,10 @@ function CustomerModal({ isOpen, onClose, customer, onSave }) {
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 bg-slate-950/20 flex items-center justify-center p-4 z-50">
-      <div className="bg-slate-900 border border-slate-800 rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.6)] w-full max-w-[70vw] overflow-hidden animate-in fade-in zoom-in duration-200 flex flex-col max-h-[70vh]">
-        <div className="px-6 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-900/50">
+    <div className="fixed inset-0 top-16 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-slate-950/20" onClick={onClose} />
+      <div className="relative bg-slate-900 border border-slate-800 rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.6)] w-full max-w-[70vw] overflow-hidden animate-in fade-in zoom-in duration-200 flex flex-col max-h-[85vh]">
+        <div className="px-6 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-900">
           <h2 className="font-syne text-xl font-bold text-white">
             {customer ? 'Edit Customer' : 'Add New Customer'}
           </h2>

@@ -312,7 +312,12 @@ export default function VoiceBilling({ onSuccess }) {
     let payload;
     if (typeof data === 'string') {
       payload = { transcript: data };
-      const res = await backendClient.post('/ai/process-voice/generate-invoice', payload);
+      const res = await backendClient.post('/ai/process-voice/generate-invoice', {
+        ...payload,
+        dueDate: billingType === 'B2B' 
+          ? new Date(new Date().setMonth(new Date().getMonth() + 1)).toISOString().split('T')[0]
+          : null
+      });
       const inv = res.data?.data;
       if (inv && inv.success === false) throw new Error(inv.errorMessage || 'Generation failed');
       if (!inv?.invoiceNumber) throw new Error('Invoice generation failed.');
@@ -327,6 +332,9 @@ export default function VoiceBilling({ onSuccess }) {
         })),
         voiceTranscript: transcript,
         voiceGenerated: true,
+        dueDate: billingType === 'B2B' 
+          ? new Date(new Date().setMonth(new Date().getMonth() + 1)).toISOString().split('T')[0]
+          : null
       };
       const res = await backendClient.post('/invoices', payload);
       const inv = res.data?.data;
@@ -1017,7 +1025,7 @@ export default function VoiceBilling({ onSuccess }) {
                       />
                       <Button
                         icon={Calendar}
-                        className="bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 border border-amber-500/40 font-semibold"
+                        className="bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 border border-amber-500/40 font-black text-[11px] uppercase tracking-widest rounded-2xl transition-all active:scale-95"
                       >
                         Schedule Due
                       </Button>

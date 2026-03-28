@@ -23,13 +23,17 @@ public class Customer {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+ 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id")
+    private User user;
 
     @NotBlank
     @Column(nullable = false)
     private String name;
 
     @Email
-    @Column(unique = true)
+    @Column
     private String email;
 
     private String phone;

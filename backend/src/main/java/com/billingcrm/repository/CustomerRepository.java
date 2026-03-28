@@ -14,19 +14,20 @@ import java.util.Optional;
 @Repository
 public interface CustomerRepository extends JpaRepository<Customer, Long> {
 
-        Optional<Customer> findByEmail(String email);
+        Optional<Customer> findByUserIdAndEmail(Long userId, String email);
 
-        boolean existsByEmail(String email);
+        boolean existsByUserIdAndEmail(Long userId, String email);
 
         /** Exact case-insensitive name match */
-        Optional<Customer> findByNameIgnoreCase(String name);
+        Optional<Customer> findByUserIdAndNameIgnoreCase(Long userId, String name);
 
         /** Partial name match — used when exact lookup fails */
-        List<Customer> findByNameContainingIgnoreCase(String name);
+        List<Customer> findByUserIdAndNameContainingIgnoreCase(Long userId, String name);
 
         @Query("""
                         SELECT c FROM Customer c
-                        WHERE (:search IS NULL OR
+                        WHERE c.user.id = :userId AND
+                               (:search IS NULL OR
                                LOWER(c.name)    LIKE :search OR
                                LOWER(c.email)   LIKE :search OR
                                LOWER(COALESCE(c.phone, '')) LIKE :search OR
@@ -41,7 +42,10 @@ public interface CustomerRepository extends JpaRepository<Customer, Long> {
                         @Param("search") String search,
                         @Param("status") Customer.Status status,
                         @Param("hasTaxId") Boolean hasTaxId,
+                        @Param("userId") Long userId,
                         Pageable pageable);
 
-        long countByStatus(Customer.Status status);
+        long countByUserIdAndStatus(Long userId, Customer.Status status);
+
+        Optional<Customer> findByIdAndUserId(Long id, Long userId);
 }

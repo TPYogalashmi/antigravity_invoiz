@@ -44,12 +44,10 @@ public class InvoiceServiceImpl implements InvoiceService {
 
         try {
             // ── 1. Resolve Customer ─────────────────────────────────────────
-            Customer customer = resolveCustomer(req);
+            Customer customer = resolveCustomer(req, userId);
 
             // ── 2. Resolve Creator ─────────────────────────────────────────
-            User createdBy = userId != null
-                    ? userRepository.findById(userId).orElse(null)
-                    : null;
+            User user = userRepository.getReferenceById(userId);
 
             boolean isB2B = (customer.getTaxId() != null && !customer.getTaxId().isBlank());
             LocalDate issueDate = (req.getIssueDate() != null ? req.getIssueDate() : LocalDate.now());
@@ -61,9 +59,9 @@ public class InvoiceServiceImpl implements InvoiceService {
 
             // ── 3. Build Invoice shell ──────────────────────────────────────
             Invoice invoice = Invoice.builder()
-                    .invoiceNumber(generateInvoiceNumber())
+                    .invoiceNumber(generateInvoiceNumber(userId))
                     .customer(customer)
-                    .createdBy(createdBy)
+                    .user(user)
                     .currency(req.getCurrency() != null && !req.getCurrency().isBlank()
                             ? req.getCurrency().toUpperCase()
                             : DEFAULT_CURRENCY)
@@ -84,7 +82,7 @@ public class InvoiceServiceImpl implements InvoiceService {
             for (int i = 0; i < req.getItems().size(); i++) {
                 InvoiceRequest.InvoiceItemDTO itemReq = req.getItems().get(i);
                 try {
-                    InvoiceItem item = resolveLineItem(itemReq, invoice);
+                    InvoiceItem item = resolveLineItem(itemReq, invoice, userId);
                     items.add(item);
                     totalAmount = totalAmount.add(item.getPrice()
                             .multiply(item.getQuantity()).setScale(2, RoundingMode.HALF_UP));
@@ -106,7 +104,7 @@ public class InvoiceServiceImpl implements InvoiceService {
             if (isB2B) {
                 // B2B: Flat Rate dynamic logic (10% or 20%)
                 LocalDate thirtyDaysAgo = LocalDate.now().minusDays(30);
-                long ordersLastMonth = invoiceRepository.findByCustomerIdOrderByIssueDateDesc(customer.getId()).stream()
+                long ordersLastMonth = invoiceRepository.findByUserIdAndCustomerIdOrderByIssueDateDesc(userId, customer.getId()).stream()
                         .map(Invoice::getIssueDate)
                         .filter(d -> d.isAfter(thirtyDaysAgo) || d.isEqual(thirtyDaysAgo))
                         .distinct()
@@ -119,7 +117,7 @@ public class InvoiceServiceImpl implements InvoiceService {
             } else {
                 // B2C: Specific reward logic for top 3 purchases
                 // Fetch top 3 product IDs
-                List<Long> topProductIds = productRepository.findTopProductsWithAvgQtyByCustomer(customer.getId(), org.springframework.data.domain.PageRequest.of(0, 3))
+                List<Long> topProductIds = productRepository.findTopProductsWithAvgQtyByCustomer(customer.getId(), userId, org.springframework.data.domain.PageRequest.of(0, 3))
                         .stream()
                         .map(obj -> {
                             Object[] array = (Object[]) obj;
@@ -171,8 +169,8 @@ public class InvoiceServiceImpl implements InvoiceService {
             invoice.setFinalAmount(finalAmount);
 
             Invoice saved = invoiceRepository.save(invoice);
-            log.info("Created invoice {} — customer='{}' items={} finalAmount=₹{}",
-                    saved.getInvoiceNumber(), customer.getName(),
+            log.info("Created invoice {} for user={} — customer='{}' items={} finalAmount=₹{}",
+                    saved.getInvoiceNumber(), userId, customer.getName(),
                     saved.getItems().size(), saved.getFinalAmount());
             InvoiceResponse response = invoiceMapper.toResponse(saved);
             response.setSuccess(true);
@@ -193,20 +191,20 @@ public class InvoiceServiceImpl implements InvoiceService {
 
     @Override
     @Transactional(readOnly = true)
-    public InvoiceResponse findById(Long id) {
-        return invoiceMapper.toResponse(fetchById(id));
+    public InvoiceResponse findById(Long id, Long userId) {
+        return invoiceMapper.toResponse(fetchById(id, userId));
     }
 
     @Override
-    public InvoiceResponse updateStatus(Long id, String status) {
-        Invoice invoice = fetchById(id);
+    public InvoiceResponse updateStatus(Long id, String status, Long userId) {
+        Invoice invoice = fetchById(id, userId);
         invoice.setStatus(parseStatus(status, invoice.getStatus()));
         return invoiceMapper.toResponse(invoiceRepository.save(invoice));
     }
  
     @Override
-    public InvoiceResponse updateDueDate(Long id, LocalDate dueDate) {
-        Invoice invoice = fetchById(id);
+    public InvoiceResponse updateDueDate(Long id, LocalDate dueDate, Long userId) {
+        Invoice invoice = fetchById(id, userId);
         invoice.setDueDate(dueDate);
         return invoiceMapper.toResponse(invoiceRepository.save(invoice));
     }
@@ -215,7 +213,7 @@ public class InvoiceServiceImpl implements InvoiceService {
     @Transactional(readOnly = true)
     public Page<InvoiceResponse> findAll(
             String search, String status, Long customerId, LocalDate startDate, LocalDate endDate, BigDecimal minAmount,
-            String type, Pageable pageable) {
+            String type, Long userId, Pageable pageable) {
 
         Invoice.Status statusEnum = null;
         if (status != null && !status.isBlank()) {
@@ -231,36 +229,49 @@ public class InvoiceServiceImpl implements InvoiceService {
                 : "%" + search.trim().toLowerCase() + "%";
 
         return invoiceRepository.findByFilters(
-                searchPattern, statusEnum, customerId, startDate, endDate, minAmount, type, pageable)
+                searchPattern, statusEnum, customerId, startDate, endDate, minAmount, type, userId, pageable)
                 .map(invoiceMapper::toResponse);
     }
 
     @Override
-    public void delete(Long id) {
-        Invoice invoice = fetchById(id);
+    public void delete(Long id, Long userId) {
+        Invoice invoice = fetchById(id, userId);
         if (invoice.getStatus() == Invoice.Status.PAID) {
             throw new BadRequestException("Cannot delete a paid invoice");
         }
         invoiceRepository.delete(invoice);
-        log.info("Deleted invoice id={}", id);
+        log.info("Deleted invoice id={} for user={}", id, userId);
+    }
+
+    @Override
+    public void refreshOverdueInvoices(Long userId) {
+        int updated = invoiceRepository.updateOverdueStatus(
+                LocalDate.now(), 
+                Invoice.Status.UNPAID, 
+                Invoice.Status.OVERDUE, 
+                userId
+        );
+        if (updated > 0) {
+            log.info("Auto-updated {} invoices to OVERDUE for user={}", updated, userId);
+        }
     }
 
     // ── Private: Customer Resolution ────────────────────────────────────
 
-    private Customer resolveCustomer(InvoiceRequest req) {
+    private Customer resolveCustomer(InvoiceRequest req, Long userId) {
         Customer customer;
 
         // 1. Strict ID Lookup
         if (req.getCustomerId() != null) {
-            customer = customerRepository.findById(req.getCustomerId())
-                    .orElseThrow(() -> new BadRequestException("Customer ID " + req.getCustomerId() + " not found."));
+            customer = customerRepository.findByIdAndUserId(req.getCustomerId(), userId)
+                    .orElseThrow(() -> new BadRequestException("Customer ID " + req.getCustomerId() + " not found for this user."));
         }
         // 2. Strict Name Lookup (No Fuzzy, No Auto-Create)
         else if (req.getCustomerName() != null && !req.getCustomerName().isBlank()) {
             String name = req.getCustomerName().trim();
-            customer = customerRepository.findByNameIgnoreCase(name)
+            customer = customerRepository.findByUserIdAndNameIgnoreCase(userId, name)
                     .orElseThrow(() -> new BadRequestException(
-                            "Customer '" + name + "' not found. Please register them first."));
+                            "Customer '" + name + "' not found for this user. Please register them first."));
         } else {
             throw new BadRequestException("Either a valid Customer ID or Name must be provided.");
         }
@@ -276,18 +287,18 @@ public class InvoiceServiceImpl implements InvoiceService {
 
     // ── Private: Line Item Resolution ───────────────────────────────────
 
-    private InvoiceItem resolveLineItem(InvoiceRequest.InvoiceItemDTO req, Invoice invoice) {
+    private InvoiceItem resolveLineItem(InvoiceRequest.InvoiceItemDTO req, Invoice invoice, Long userId) {
 
         Product product = null;
 
         // Priority 1: explicit productId
         if (req.getProductId() != null) {
-            product = productRepository.findById(req.getProductId())
+            product = productRepository.findByIdAndUserId(req.getProductId(), userId)
                     .orElseThrow(() -> new ResourceNotFoundException("Product", req.getProductId()));
         }
         // Priority 2: resolve by name (fuzzy)
         else if (req.getProductName() != null && !req.getProductName().isBlank()) {
-            product = productMatchService.resolve(req.getProductName());
+            product = productMatchService.resolve(req.getProductName(), userId);
         }
 
         // ── Status Check ────────────────────────────────────────────────────
@@ -350,9 +361,9 @@ public class InvoiceServiceImpl implements InvoiceService {
 
     // ── Private: Invoice Number Generator ───────────────────────────────
 
-    private String generateInvoiceNumber() {
+    private String generateInvoiceNumber(Long userId) {
         String datePrefix = LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMMdd"));
-        int next = invoiceRepository.findMaxSequenceForDate(datePrefix)
+        int next = invoiceRepository.findMaxSequenceForDate(datePrefix, userId)
                 .map(m -> m + 1)
                 .orElse(1);
         return String.format("INV-%s-%04d", datePrefix, next);
@@ -360,8 +371,8 @@ public class InvoiceServiceImpl implements InvoiceService {
 
     // ── Private: Helpers ─────────────────────────────────────────────────
 
-    private Invoice fetchById(Long id) {
-        return invoiceRepository.findById(id)
+    private Invoice fetchById(Long id, Long userId) {
+        return invoiceRepository.findByIdAndUserId(id, userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Invoice", id));
     }
 

@@ -12,11 +12,9 @@ import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import com.billingcrm.model.User;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
-
-import com.billingcrm.repository.UserRepository;
 import lombok.extern.slf4j.Slf4j;
 import java.math.BigDecimal;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -29,15 +27,13 @@ import java.time.LocalDate;
 public class InvoiceController {
 
     private final InvoiceService invoiceService;
-    private final UserRepository userRepository;
 
     @PostMapping
     public ResponseEntity<ApiResponse<InvoiceResponse>> create(
             @Valid @RequestBody InvoiceRequest request,
-            @AuthenticationPrincipal UserDetails principal) {
+            @AuthenticationPrincipal User user) {
 
-        Long userId = resolveUserId(principal);
-        InvoiceResponse response = invoiceService.create(request, userId);
+        InvoiceResponse response = invoiceService.create(request, user.getId());
         return ResponseEntity
                 .status(HttpStatus.CREATED)
                 .body(ApiResponse.success("Invoice created", response));
@@ -55,50 +51,56 @@ public class InvoiceController {
             @RequestParam(name = "page", defaultValue = "0") int page,
             @RequestParam(name = "size", defaultValue = "10") int size,
             @RequestParam(name = "sortBy", defaultValue = "createdAt") String sortBy,
-            @RequestParam(name = "sortDir", defaultValue = "desc") String sortDir) {
+            @RequestParam(name = "sortDir", defaultValue = "desc") String sortDir,
+            @AuthenticationPrincipal User user) {
 
         Sort sort = sortDir.equalsIgnoreCase("asc")
                 ? Sort.by(sortBy).ascending()
                 : Sort.by(sortBy).descending();
 
         Page<InvoiceResponse> invoices = invoiceService.findAll(search, status, customerId, startDate, endDate,
-                minAmount, type, PageRequest.of(page, size, sort));
+                minAmount, type, user.getId(), PageRequest.of(page, size, sort));
         return ResponseEntity.ok(ApiResponse.success(invoices));
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<ApiResponse<InvoiceResponse>> findById(@PathVariable(name = "id") Long id) {
-        return ResponseEntity.ok(ApiResponse.success(invoiceService.findById(id)));
+    public ResponseEntity<ApiResponse<InvoiceResponse>> findById(
+            @PathVariable(name = "id") Long id,
+            @AuthenticationPrincipal User user) {
+        return ResponseEntity.ok(ApiResponse.success(invoiceService.findById(id, user.getId())));
     }
 
     @PatchMapping("/{id}/status")
     public ResponseEntity<ApiResponse<InvoiceResponse>> updateStatus(
             @PathVariable(name = "id") Long id,
-            @RequestParam(name = "status") String status) {
+            @RequestParam(name = "status") String status,
+            @AuthenticationPrincipal User user) {
         return ResponseEntity.ok(
-                ApiResponse.success("Status updated", invoiceService.updateStatus(id, status)));
+                ApiResponse.success("Status updated", invoiceService.updateStatus(id, status, user.getId())));
     }
  
     @PatchMapping("/{id}/due-date")
     public ResponseEntity<ApiResponse<InvoiceResponse>> updateDueDate(
             @PathVariable(name = "id") Long id,
-            @RequestParam(name = "dueDate") @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate dueDate) {
+            @RequestParam(name = "dueDate") @org.springframework.format.annotation.DateTimeFormat(iso = org.springframework.format.annotation.DateTimeFormat.ISO.DATE) java.time.LocalDate dueDate,
+            @AuthenticationPrincipal User user) {
         return ResponseEntity.ok(
-                ApiResponse.success("Due date updated", invoiceService.updateDueDate(id, dueDate)));
+                ApiResponse.success("Due date updated", invoiceService.updateDueDate(id, dueDate, user.getId())));
+    }
+
+    @PostMapping("/refresh-overdue")
+    public ResponseEntity<ApiResponse<Void>> refreshOverdue(
+            @AuthenticationPrincipal User user) {
+        invoiceService.refreshOverdueInvoices(user.getId());
+        return ResponseEntity.ok(ApiResponse.success("Overdue statuses refreshed", null));
     }
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<ApiResponse<Void>> delete(@PathVariable(name = "id") Long id) {
-        invoiceService.delete(id);
+    public ResponseEntity<ApiResponse<Void>> delete(
+            @PathVariable(name = "id") Long id,
+            @AuthenticationPrincipal User user) {
+        invoiceService.delete(id, user.getId());
         return ResponseEntity.ok(ApiResponse.success("Invoice deleted", null));
-    }
-
-    private Long resolveUserId(UserDetails principal) {
-        if (principal == null)
-            return null;
-        return userRepository.findByEmail(principal.getUsername())
-                .map(u -> u.getId())
-                .orElse(null);
     }
 }

@@ -16,18 +16,19 @@ import java.util.Optional;
 @Repository
 public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
 
-        Optional<Invoice> findByInvoiceNumber(String invoiceNumber);
+        Optional<Invoice> findByUserIdAndInvoiceNumber(Long userId, String invoiceNumber);
 
-        boolean existsByInvoiceNumber(String invoiceNumber);
+        boolean existsByUserIdAndInvoiceNumber(Long userId, String invoiceNumber);
 
-        Page<Invoice> findByCustomerId(Long customerId, Pageable pageable);
+        Page<Invoice> findByUserIdAndCustomerId(Long userId, Long customerId, Pageable pageable);
 
-        java.util.List<Invoice> findByCustomerIdOrderByIssueDateDesc(Long customerId);
+        java.util.List<Invoice> findByUserIdAndCustomerIdOrderByIssueDateDesc(Long userId, Long customerId);
 
         @Query("""
                SELECT i FROM Invoice i
                LEFT JOIN i.customer c
-               WHERE (:search IS NULL OR
+               WHERE i.user.id = :userId AND
+                     (:search IS NULL OR
                       LOWER(i.invoiceNumber) LIKE :search OR
                       LOWER(c.name) LIKE :search OR
                       LOWER(c.company) LIKE :search OR
@@ -49,40 +50,48 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
                         @Param("endDate") LocalDate endDate,
                         @Param("minAmount") BigDecimal minAmount,
                         @Param("type") String type,
+                        @Param("userId") Long userId,
                         Pageable pageable);
 
-        @Query("SELECT COALESCE(SUM(i.finalAmount),0) FROM Invoice i WHERE i.status = 'PAID'")
-        BigDecimal sumTotalRevenue();
+        @Query("SELECT COALESCE(SUM(i.finalAmount),0) FROM Invoice i WHERE i.user.id = :userId AND i.status = 'PAID'")
+        BigDecimal sumTotalRevenue(@Param("userId") Long userId);
 
-        @Query("SELECT COALESCE(SUM(i.finalAmount),0) FROM Invoice i WHERE i.status = 'UNPAID'")
-        BigDecimal sumUnpaidRevenue();
+        @Query("SELECT COALESCE(SUM(i.finalAmount),0) FROM Invoice i WHERE i.user.id = :userId AND i.status = 'UNPAID'")
+        BigDecimal sumUnpaidRevenue(@Param("userId") Long userId);
 
-        long countByStatus(Invoice.Status status);
+        long countByUserIdAndStatus(Long userId, Invoice.Status status);
  
         @org.springframework.data.jpa.repository.Modifying
         @org.springframework.transaction.annotation.Transactional
         @Query("UPDATE Invoice i SET i.status = :overdueStatus WHERE i.dueDate < :today AND i.status = :unpaidStatus")
-        int updateOverdueStatus(@Param("today") LocalDate today, @Param("unpaidStatus") Invoice.Status unpaidStatus, @Param("overdueStatus") Invoice.Status overdueStatus);
+        int updateAllOverdueStatus(@Param("today") LocalDate today, @Param("unpaidStatus") Invoice.Status unpaidStatus, @Param("overdueStatus") Invoice.Status overdueStatus);
+ 
+        @org.springframework.data.jpa.repository.Modifying
+        @org.springframework.transaction.annotation.Transactional
+        @Query("UPDATE Invoice i SET i.status = :overdueStatus WHERE i.user.id = :userId AND i.dueDate < :today AND i.status = :unpaidStatus")
+        int updateOverdueStatus(@Param("today") LocalDate today, @Param("unpaidStatus") Invoice.Status unpaidStatus, @Param("overdueStatus") Invoice.Status overdueStatus, @Param("userId") Long userId);
 
-        @Query("SELECT COUNT(i) FROM Invoice i WHERE i.dueDate < :today AND i.status = 'UNPAID'")
-        long countOverdue(@Param("today") LocalDate today);
+        @Query("SELECT COUNT(i) FROM Invoice i WHERE i.user.id = :userId AND i.dueDate < :today AND i.status = 'UNPAID'")
+        long countOverdue(@Param("today") LocalDate today, @Param("userId") Long userId);
 
         @Query("SELECT MAX(CAST(SUBSTRING(i.invoiceNumber, LENGTH(i.invoiceNumber) - 3) AS int)) " +
-               "FROM Invoice i WHERE i.invoiceNumber LIKE CONCAT('INV-', :prefix, '-%')")
-        Optional<Integer> findMaxSequenceForDate(@Param("prefix") String datePrefix);
+               "FROM Invoice i WHERE i.user.id = :userId AND i.invoiceNumber LIKE CONCAT('INV-', :prefix, '-%')")
+        Optional<Integer> findMaxSequenceForDate(@Param("prefix") String datePrefix, @Param("userId") Long userId);
 
-        @Query("SELECT COALESCE(SUM(i.finalAmount),0) FROM Invoice i WHERE i.issueDate = :date")
-        BigDecimal sumRevenueByDate(@Param("date") LocalDate date);
+        @Query("SELECT COALESCE(SUM(i.finalAmount),0) FROM Invoice i WHERE i.user.id = :userId AND i.issueDate = :date")
+        BigDecimal sumRevenueByDate(@Param("date") LocalDate date, @Param("userId") Long userId);
 
-        @Query("SELECT COALESCE(SUM(i.finalAmount),0) FROM Invoice i WHERE i.issueDate >= :startDate AND i.issueDate <= :endDate")
-        BigDecimal sumRevenueBetweenDates(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
+        @Query("SELECT COALESCE(SUM(i.finalAmount),0) FROM Invoice i WHERE i.user.id = :userId AND i.issueDate >= :startDate AND i.issueDate <= :endDate")
+        BigDecimal sumRevenueBetweenDates(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate, @Param("userId") Long userId);
 
-        @Query("SELECT COUNT(i) FROM Invoice i WHERE i.issueDate = :date")
-        long countTotalOrdersByDate(@Param("date") LocalDate date);
+        @Query("SELECT COUNT(i) FROM Invoice i WHERE i.user.id = :userId AND i.issueDate = :date")
+        long countTotalOrdersByDate(@Param("date") LocalDate date, @Param("userId") Long userId);
 
-        @Query("SELECT COUNT(i) FROM Invoice i WHERE i.issueDate >= :startDate AND i.issueDate <= :endDate")
-        long countTotalOrdersBetweenDates(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
+        @Query("SELECT COUNT(i) FROM Invoice i WHERE i.user.id = :userId AND i.issueDate >= :startDate AND i.issueDate <= :endDate")
+        long countTotalOrdersBetweenDates(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate, @Param("userId") Long userId);
 
-        @Query("SELECT i.issueDate, SUM(i.finalAmount) FROM Invoice i WHERE i.issueDate >= :startDate AND i.issueDate <= :endDate GROUP BY i.issueDate ORDER BY i.issueDate ASC")
-        List<Object[]> getDailyRevenueBetweenDates(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate);
+        @Query("SELECT i.issueDate, SUM(i.finalAmount) FROM Invoice i WHERE i.user.id = :userId AND i.issueDate >= :startDate AND i.issueDate <= :endDate GROUP BY i.issueDate ORDER BY i.issueDate ASC")
+        List<Object[]> getDailyRevenueBetweenDates(@Param("startDate") LocalDate startDate, @Param("endDate") LocalDate endDate, @Param("userId") Long userId);
+
+        Optional<Invoice> findByIdAndUserId(Long id, Long userId);
 }

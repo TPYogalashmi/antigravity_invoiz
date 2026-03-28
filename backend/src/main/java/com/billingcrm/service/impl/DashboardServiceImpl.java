@@ -32,30 +32,30 @@ public class DashboardServiceImpl implements DashboardService {
 
     @Override
     @Transactional
-    public DashboardStatsResponse getStats() {
+    public DashboardStatsResponse getStats(Long userId) {
         LocalDate today = LocalDate.now();
         
         // Auto-update overdue statuses whenever dashboard/login happens
-        invoiceRepository.updateOverdueStatus(today, Invoice.Status.UNPAID, Invoice.Status.OVERDUE);
+        invoiceRepository.updateOverdueStatus(today, Invoice.Status.UNPAID, Invoice.Status.OVERDUE, userId);
         LocalDate startOfMonth = today.withDayOfMonth(1);
         LocalDate startOfPrevMonth = startOfMonth.minusMonths(1);
         LocalDate endOfPrevMonth = startOfMonth.minusDays(1);
 
         // 1. Revenue & Orders KPIs
-        BigDecimal revenueToday = invoiceRepository.sumRevenueByDate(today);
-        BigDecimal revenueMonth = invoiceRepository.sumRevenueBetweenDates(startOfMonth, today);
-        long ordersToday = invoiceRepository.countTotalOrdersByDate(today);
-        long ordersMonth = invoiceRepository.countTotalOrdersBetweenDates(startOfMonth, today);
+        BigDecimal revenueToday = invoiceRepository.sumRevenueByDate(today, userId);
+        BigDecimal revenueMonth = invoiceRepository.sumRevenueBetweenDates(startOfMonth, today, userId);
+        long ordersToday = invoiceRepository.countTotalOrdersByDate(today, userId);
+        long ordersMonth = invoiceRepository.countTotalOrdersBetweenDates(startOfMonth, today, userId);
         
         BigDecimal avgBillToday = ordersToday > 0 ? revenueToday.divide(BigDecimal.valueOf(ordersToday), RoundingMode.HALF_UP) : BigDecimal.ZERO;
         BigDecimal avgBillMonth = ordersMonth > 0 ? revenueMonth.divide(BigDecimal.valueOf(ordersMonth), RoundingMode.HALF_UP) : BigDecimal.ZERO;
 
         // 2. Trends (Filling gaps for all days of the month)
-        List<DashboardStatsResponse.DailyRevenue> currentMonthTrend = getTrendWithGaps(startOfMonth, today);
-        List<DashboardStatsResponse.DailyRevenue> prevMonthTrend = getTrendWithGaps(startOfPrevMonth, endOfPrevMonth);
+        List<DashboardStatsResponse.DailyRevenue> currentMonthTrend = getTrendWithGaps(startOfMonth, today, userId);
+        List<DashboardStatsResponse.DailyRevenue> prevMonthTrend = getTrendWithGaps(startOfPrevMonth, endOfPrevMonth, userId);
 
         // 3. Top Products Today
-        List<DashboardStatsResponse.TopProduct> topProducts = productRepository.findTopProductsByDate(today, PageRequest.of(0, 3))
+        List<DashboardStatsResponse.TopProduct> topProducts = productRepository.findTopProductsByDate(today, userId, PageRequest.of(0, 3))
                 .stream()
                 .map(obj -> DashboardStatsResponse.TopProduct.builder()
                         .name((String) obj[0])
@@ -64,7 +64,7 @@ public class DashboardServiceImpl implements DashboardService {
                 .collect(Collectors.toList());
 
         // 4. Out of Stock
-        List<DashboardStatsResponse.ProductSummary> oosItems = productRepository.findOutOfStockProducts()
+        List<DashboardStatsResponse.ProductSummary> oosItems = productRepository.findOutOfStockProducts(userId)
                 .stream()
                 .map(p -> DashboardStatsResponse.ProductSummary.builder()
                         .name(p.getName())
@@ -79,21 +79,21 @@ public class DashboardServiceImpl implements DashboardService {
                 .avgBillMonth(avgBillMonth)
                 .ordersToday(ordersToday)
                 .ordersMonth(ordersMonth)
-                .totalUnpaidBills(invoiceRepository.countByStatus(Invoice.Status.UNPAID))
-                .totalOverdueBills(invoiceRepository.countOverdue(today))
+                .totalUnpaidBills(invoiceRepository.countByUserIdAndStatus(userId, Invoice.Status.UNPAID))
+                .totalOverdueBills(invoiceRepository.countOverdue(today, userId))
                 .revenueTrend(currentMonthTrend)
                 .previousMonthTrend(prevMonthTrend)
                 .customerStatus(DashboardStatsResponse.CustomerStatusDistribution.builder()
-                        .active(customerRepository.countByStatus(Customer.Status.ACTIVE))
-                        .suspended(customerRepository.countByStatus(Customer.Status.SUSPENDED))
+                        .active(customerRepository.countByUserIdAndStatus(userId, Customer.Status.ACTIVE))
+                        .suspended(customerRepository.countByUserIdAndStatus(userId, Customer.Status.SUSPENDED))
                         .build())
                 .topProductsToday(topProducts)
                 .outOfStockItems(oosItems)
                 .build();
     }
 
-    private List<DashboardStatsResponse.DailyRevenue> getTrendWithGaps(LocalDate start, LocalDate end) {
-        Map<LocalDate, BigDecimal> existingData = invoiceRepository.getDailyRevenueBetweenDates(start, end)
+    private List<DashboardStatsResponse.DailyRevenue> getTrendWithGaps(LocalDate start, LocalDate end, Long userId) {
+        Map<LocalDate, BigDecimal> existingData = invoiceRepository.getDailyRevenueBetweenDates(start, end, userId)
                 .stream()
                 .collect(Collectors.toMap(
                         obj -> (LocalDate) obj[0],

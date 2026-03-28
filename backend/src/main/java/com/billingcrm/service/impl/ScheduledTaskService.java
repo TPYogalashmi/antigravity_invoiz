@@ -24,7 +24,7 @@ public class ScheduledTaskService {
     @Transactional
     public void runDailyOverdueCheck() {
         log.info("Starting daily background overdue check...");
-        int updated = invoiceRepository.updateOverdueStatus(LocalDate.now(), Invoice.Status.UNPAID, Invoice.Status.OVERDUE);
+        int updated = invoiceRepository.updateAllOverdueStatus(LocalDate.now(), Invoice.Status.UNPAID, Invoice.Status.OVERDUE);
         log.info("Finished background overdue check. Updated {} invoices to OVERDUE.", updated);
     }
 }

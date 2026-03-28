@@ -14,6 +14,7 @@ import com.billingcrm.repository.CustomerProductDiscountRepository;
 import com.billingcrm.repository.CustomerRepository;
 import com.billingcrm.repository.InvoiceRepository;
 import com.billingcrm.repository.ProductRepository;
+import com.billingcrm.repository.UserRepository;
 import com.billingcrm.service.CustomerService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -40,42 +41,45 @@ public class CustomerServiceImpl implements CustomerService {
     private final InvoiceRepository invoiceRepository;
     private final ProductRepository productRepository;
     private final CustomerProductDiscountRepository customerProductDiscountRepository;
+    private final UserRepository userRepository;
     private final CustomerMapper customerMapper;
     private final InvoiceMapper invoiceMapper;
 
     @Override
-    public CustomerResponse create(CustomerRequest request) {
-        if (request.getEmail() != null && customerRepository.existsByEmail(request.getEmail())) {
+    public CustomerResponse create(CustomerRequest request, Long userId) {
+        if (request.getEmail() != null && customerRepository.existsByUserIdAndEmail(userId, request.getEmail())) {
             throw new DuplicateResourceException("Customer", "email", request.getEmail());
         }
-        Customer saved = customerRepository.save(customerMapper.toEntity(request));
-        log.info("Created customer id={} name={}", saved.getId(), saved.getName());
+        Customer entity = customerMapper.toEntity(request);
+        entity.setUser(userRepository.getReferenceById(userId));
+        Customer saved = customerRepository.save(entity);
+        log.info("Created customer id={} name={} for user={}", saved.getId(), saved.getName(), userId);
         return customerMapper.toResponse(saved);
     }
 
     @Override
-    public CustomerResponse update(Long id, CustomerRequest request) {
-        Customer customer = findCustomerById(id);
+    public CustomerResponse update(Long id, CustomerRequest request, Long userId) {
+        Customer customer = findCustomerById(id, userId);
         if (request.getEmail() != null
                 && !request.getEmail().equalsIgnoreCase(customer.getEmail())
-                && customerRepository.existsByEmail(request.getEmail())) {
+                && customerRepository.existsByUserIdAndEmail(userId, request.getEmail())) {
             throw new DuplicateResourceException("Customer", "email", request.getEmail());
         }
         customerMapper.updateEntity(customer, request);
         Customer saved = customerRepository.save(customer);
-        log.info("Updated customer id={}", saved.getId());
+        log.info("Updated customer id={} for user={}", saved.getId(), userId);
         return customerMapper.toResponse(saved);
     }
 
     @Override
     @Transactional(readOnly = true)
-    public CustomerResponse findById(Long id) {
-        return customerMapper.toResponse(findCustomerById(id));
+    public CustomerResponse findById(Long id, Long userId) {
+        return customerMapper.toResponse(findCustomerById(id, userId));
     }
 
     @Override
     @Transactional(readOnly = true)
-    public Page<CustomerResponse> findAll(String search, String status, Boolean hasTaxId, Pageable pageable) {
+    public Page<CustomerResponse> findAll(String search, String status, Boolean hasTaxId, Long userId, Pageable pageable) {
         Customer.Status statusEnum = null;
         if (status != null && !status.isBlank()) {
             statusEnum = Customer.Status.valueOf(status.toUpperCase());
@@ -89,24 +93,25 @@ public class CustomerServiceImpl implements CustomerService {
                 searchParam,
                 statusEnum,
                 hasTaxId,
+                userId,
                 pageable).map(customerMapper::toResponse);
     }
 
     @Override
-    public void delete(Long id) {
-        Customer customer = findCustomerById(id);
+    public void delete(Long id, Long userId) {
+        Customer customer = findCustomerById(id, userId);
         customer.setStatus(Customer.Status.SUSPENDED);
         customerRepository.save(customer);
-        log.info("Soft-deleted (Suspended) customer id={}", id);
+        log.info("Soft-deleted (Suspended) customer id={} for user={}", id, userId);
     }
 
     @Override
     @Transactional(readOnly = true)
-    public CustomerProfileResponse getProfile(Long id) {
-        Customer customer = findCustomerById(id);
+    public CustomerProfileResponse getProfile(Long id, Long userId) {
+        Customer customer = findCustomerById(id, userId);
         
         // Fetch all invoices for stats
-        List<Invoice> allInvoices = invoiceRepository.findByCustomerIdOrderByIssueDateDesc(id);
+        List<Invoice> allInvoices = invoiceRepository.findByUserIdAndCustomerIdOrderByIssueDateDesc(userId, id);
         
         long totalOrders = allInvoices.size();
         BigDecimal totalSpend = allInvoices.stream()
@@ -133,7 +138,7 @@ public class CustomerServiceImpl implements CustomerService {
         else frequency = "Occasional";
 
         // Frequent Items
-        List<CustomerProfileResponse.FrequentItemDTO> frequentItems = productRepository.findTopProductsWithAvgQtyByCustomer(id, PageRequest.of(0, 3))
+        List<CustomerProfileResponse.FrequentItemDTO> frequentItems = productRepository.findTopProductsWithAvgQtyByCustomer(id, userId, PageRequest.of(0, 3))
                 .stream()
                 .map(obj -> {
                     Object[] array = (Object[]) obj;
@@ -205,9 +210,9 @@ public class CustomerServiceImpl implements CustomerService {
     }
 
     @Override
-    public void updateSpecificDiscount(Long customerId, Long productId, BigDecimal discount) {
-        Customer customer = findCustomerById(customerId);
-        com.billingcrm.model.Product product = productRepository.findById(productId)
+    public void updateSpecificDiscount(Long customerId, Long productId, BigDecimal discount, Long userId) {
+        Customer customer = findCustomerById(customerId, userId);
+        com.billingcrm.model.Product product = productRepository.findByIdAndUserId(productId, userId)
             .orElseThrow(() -> new ResourceNotFoundException("Product", productId));
 
         com.billingcrm.model.CustomerProductDiscount cpd = customerProductDiscountRepository
@@ -219,19 +224,19 @@ public class CustomerServiceImpl implements CustomerService {
 
         cpd.setDiscountPercentage(discount);
         customerProductDiscountRepository.save(cpd);
-        log.info("Updated specific discount for customer={}, product={}, discount={}", customerId, productId, discount);
+        log.info("Updated specific discount for customer={}, product={}, discount={} for user={}", customerId, productId, discount, userId);
     }
 
     @Override
-    public void updateOverallDiscount(Long customerId, BigDecimal discount) {
-        Customer customer = findCustomerById(customerId);
+    public void updateOverallDiscount(Long customerId, BigDecimal discount, Long userId) {
+        Customer customer = findCustomerById(customerId, userId);
         customer.setAgreedDiscount(discount);
         customerRepository.save(customer);
-        log.info("Updated overall discount for customer={}, discount={}", customerId, discount);
+        log.info("Updated overall discount for customer={}, discount={} for user={}", customerId, discount, userId);
     }
 
-    private Customer findCustomerById(Long id) {
-        return customerRepository.findById(id)
+    private Customer findCustomerById(Long id, Long userId) {
+        return customerRepository.findByIdAndUserId(id, userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Customer", id));
     }
 }

@@ -395,27 +395,27 @@ export default function Invoices() {
                         </div>
                       </td>
                       <td className="px-8 py-6 text-right">
-                        <div className="flex items-center justify-end gap-2 transition-all duration-300">
+                        <div className="flex items-center justify-end gap-1.5 transition-all duration-300">
                           <button
                             onClick={() => { setSelectedInvoice(inv); setIsViewModalOpen(true); }}
-                            className="p-2.5 rounded-xl bg-slate-800/40 text-slate-400 hover:text-cyan-400 hover:bg-slate-700/50 transition shadow-sm border border-slate-800/50"
+                            className="p-2 rounded-lg bg-slate-800 text-slate-400 hover:text-cyan-400 hover:bg-slate-700 transition border border-slate-800/50"
                             title="View Detail"
                           >
-                            <Eye size={18} />
+                            <Eye size={14} />
                           </button>
                           <button
                             onClick={() => generateInvoicePDF({ ...inv, seller })}
-                            className="p-2.5 rounded-xl bg-slate-800/40 text-slate-400 hover:text-emerald-400 hover:bg-emerald-500/10 transition shadow-sm border border-slate-800/50"
+                            className="p-2 rounded-lg bg-slate-800 text-slate-400 hover:text-emerald-400 hover:bg-emerald-500/10 transition border border-slate-800/50"
                             title="Download PDF"
                           >
-                            <Download size={18} />
+                            <Download size={14} />
                           </button>
                           <button
                             onClick={() => { setStatusInvoice(inv); setNewStatus(''); setIsStatusModalOpen(true); }}
-                            className="p-2.5 rounded-xl bg-slate-800/40 text-slate-400 hover:text-amber-400 hover:bg-amber-500/10 transition shadow-sm border border-slate-800/50"
+                            className="p-2 rounded-lg bg-slate-800 text-slate-400 hover:text-cyan-400 hover:bg-slate-700 transition border border-slate-800/50"
                             title="Update Status"
                           >
-                            <Edit3 size={18} />
+                            <Edit3 size={14} />
                           </button>
                         </div>
                       </td>
@@ -478,11 +478,11 @@ export default function Invoices() {
 
       {/* --- INVOICE VIEW MODAL --- */}
       {isViewModalOpen && selectedInvoice && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+        <div className="fixed inset-0 top-16 z-[90] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-950/20" onClick={() => setIsViewModalOpen(false)}></div>
 
-          <div className="relative w-full max-w-4xl max-h-[95vh] overflow-y-auto rounded-[2rem] bg-slate-900 border border-slate-800 shadow-[0_20px_50px_rgba(0,0,0,0.6)] animate-in zoom-in-95 duration-200">
-            <div className="sticky top-0 z-20 flex items-center justify-between p-6 bg-slate-900/80 backdrop-blur-md border-b border-slate-800">
+          <div className="relative w-full max-w-4xl max-h-[80vh] overflow-y-auto rounded-3xl bg-slate-900 border border-slate-800 shadow-[0_20px_50px_rgba(0,0,0,0.6)] animate-in zoom-in-95 duration-200">
+            <div className="sticky top-0 z-20 flex items-center justify-between p-6 bg-slate-900 border-b border-slate-800">
               <div className="flex items-center gap-3">
                 <FileText size={24} className="text-cyan-400" />
                 <h2 className="text-xl font-bold text-white uppercase tracking-tight">Invoice Details</h2>
@@ -511,10 +511,10 @@ export default function Invoices() {
 
       {/* --- STATUS UPDATE MODAL --- */}
       {isStatusModalOpen && statusInvoice && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
+        <div className="fixed inset-0 top-16 z-[110] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-950/20" onClick={() => setIsStatusModalOpen(false)}></div>
 
-          <div className="relative w-full max-w-md rounded-[2.5rem] bg-slate-900 border border-slate-800 shadow-[0_20px_50px_rgba(0,0,0,0.6)] overflow-hidden animate-in zoom-in-95 duration-200">
+          <div className="relative w-full max-w-md rounded-3xl bg-slate-900 border border-slate-800 shadow-[0_20px_50px_rgba(0,0,0,0.6)] overflow-hidden animate-in zoom-in-95 duration-200">
             <div className="p-8">
               <div className="flex justify-between items-start mb-6">
                 <div>
@@ -600,11 +600,11 @@ export default function Invoices() {
 
       {/* --- VOICE BILLING MODAL --- */}
       {isVoiceModalOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+        <div className="fixed inset-0 top-16 z-[100] flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-slate-950/20" onClick={() => setIsVoiceModalOpen(false)}></div>
 
-          <div className="relative w-full max-w-4xl max-h-[95vh] overflow-y-auto rounded-[2.5rem] bg-slate-950 border border-slate-800 shadow-[0_20px_50px_rgba(0,0,0,0.6)] animate-in fade-in-0 zoom-in-95 duration-300">
-            <div className="sticky top-0 z-20 flex items-center justify-between p-6 bg-slate-950/80 backdrop-blur-md border-b border-slate-900">
+          <div className="relative w-full max-w-4xl max-h-[80vh] overflow-y-auto rounded-3xl bg-slate-950 border border-slate-800 shadow-[0_20px_50px_rgba(0,0,0,0.6)] animate-in fade-in-0 zoom-in-95 duration-300">
+            <div className="sticky top-0 z-20 flex items-center justify-between p-6 bg-slate-950 border-b border-slate-900">
               <div className="flex items-center gap-3">
                 <div className="w-10 h-10 rounded-2xl bg-cyan-500/10 flex items-center justify-center">
                   <Mic size={20} className="text-cyan-400 animate-pulse" />

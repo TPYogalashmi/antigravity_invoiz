@@ -80,7 +80,7 @@ function ProductModal({ isOpen, onClose, product, onSave }) {
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+    <div className="fixed inset-0 top-16 z-[100] flex items-center justify-center p-4">
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-slate-950/20 transition-opacity"
@@ -88,7 +88,7 @@ function ProductModal({ isOpen, onClose, product, onSave }) {
       />
 
       {/* Modal Card */}
-      <div className="relative w-full max-w-2xl bg-slate-900 border border-slate-800 rounded-[2.5rem] shadow-[0_20px_50px_rgba(0,0,0,0.6)] overflow-hidden animate-in fade-in zoom-in duration-300 max-h-[90vh] flex flex-col">
+      <div className="relative w-full max-w-2xl bg-slate-900 border border-slate-800 rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.6)] overflow-hidden animate-in fade-in zoom-in duration-300 max-h-[85vh] flex flex-col">
         <div className="p-8 overflow-y-auto custom-scrollbar">
           <div className="flex items-center justify-between mb-8">
             <h2 className="text-2xl font-bold text-white font-syne">
@@ -104,7 +104,6 @@ function ProductModal({ isOpen, onClose, product, onSave }) {
 
           <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Product Name (Read-only if editing as per user requirement) */}
               <div className="md:col-span-2">
                 <label className="block text-xs font-semibold text-slate-500 mb-2 uppercase tracking-wider">
                   Product Name
@@ -129,7 +128,6 @@ function ProductModal({ isOpen, onClose, product, onSave }) {
                 )}
               </div>
 
-              {/* Voice Nickname / Alias */}
               <div>
                 <label className="block text-xs font-semibold text-slate-500 mb-2 uppercase tracking-wider font-syne flex items-center gap-1.5">
                   Voice Nickname <span className="text-[10px] text-cyan-500 lowercase font-normal">(Alias)</span>
@@ -147,7 +145,6 @@ function ProductModal({ isOpen, onClose, product, onSave }) {
                 {errors.alias && <p className="mt-2 text-xs text-rose-400">{errors.alias.message}</p>}
               </div>
 
-              {/* SKU */}
               <div>
                 <label className="block text-xs font-semibold text-slate-500 mb-2 uppercase tracking-wider">
                   SKU / Code
@@ -162,7 +159,6 @@ function ProductModal({ isOpen, onClose, product, onSave }) {
                 {errors.sku && <p className="mt-2 text-xs text-rose-400">{errors.sku.message}</p>}
               </div>
 
-              {/* Unit */}
               <div>
                 <label className="block text-xs font-semibold text-slate-500 mb-2 uppercase tracking-wider">
                   Unit
@@ -175,7 +171,6 @@ function ProductModal({ isOpen, onClose, product, onSave }) {
                 />
               </div>
 
-              {/* Price */}
               <div>
                 <label className="block text-xs font-semibold text-slate-500 mb-2 uppercase tracking-wider">
                   Unit Price (₹)
@@ -192,7 +187,6 @@ function ProductModal({ isOpen, onClose, product, onSave }) {
                 {errors.price && <p className="mt-2 text-xs text-rose-400">{errors.price.message}</p>}
               </div>
 
-              {/* GST */}
               <div>
                 <label className="block text-xs font-semibold text-slate-500 mb-2 uppercase tracking-wider">
                   GST (%)
@@ -206,7 +200,6 @@ function ProductModal({ isOpen, onClose, product, onSave }) {
                 {errors.gstPercentage && <p className="mt-2 text-xs text-rose-400">{errors.gstPercentage.message}</p>}
               </div>
 
-              {/* Status */}
               <div>
                 <label className="block text-xs font-semibold text-slate-500 mb-2 uppercase tracking-wider">
                   Status
@@ -220,7 +213,6 @@ function ProductModal({ isOpen, onClose, product, onSave }) {
                 </select>
               </div>
 
-              {/* Description */}
               <div className="md:col-span-2">
                 <label className="block text-xs font-semibold text-slate-500 mb-2 uppercase tracking-wider">
                   Description
@@ -258,7 +250,6 @@ function ProductModal({ isOpen, onClose, product, onSave }) {
   )
 }
 
-// ── Main Products Component ──────────────────────────────────────────────────
 export default function Products() {
   const [products, setProducts] = useState([])
   const [isLoading, setIsLoading] = useState(true)
@@ -293,7 +284,6 @@ export default function Products() {
     }
   }, [statusFilter])
 
-  // Debounced search effect
   useEffect(() => {
     const delay = setTimeout(() => {
       fetchProductsList(searchTerm, currentPage)
@@ -301,7 +291,6 @@ export default function Products() {
     return () => clearTimeout(delay)
   }, [searchTerm, statusFilter, currentPage, fetchProductsList])
 
-  // Reset page on filter change
   useEffect(() => {
     setCurrentPage(0)
   }, [searchTerm, statusFilter])
@@ -338,7 +327,6 @@ export default function Products() {
 
   return (
     <div className="space-y-8 font-dm min-h-screen">
-      {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
         <div>
           <h1 className="text-2xl  font-syne text-white">Catalogs</h1>
@@ -356,10 +344,7 @@ export default function Products() {
         </Button>
       </div>
 
-      {/* Control Bar */}
       <div className="flex flex-col md:flex-row gap-4 mb-8 items-stretch">
-
-        {/* Search Bar Container */}
         <div className="relative flex-[2] group min-h-[54px]">
           <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
             <Search
@@ -370,24 +355,22 @@ export default function Products() {
           <input
             type="text"
             placeholder="Search by name, description, or SKU..."
-            className="w-full h-full pl-12 pr-4 py-3.5 rounded-2xl bg-slate-900/50 border border-slate-800 text-slate-200 placeholder-slate-600 focus:outline-none focus:border-cyan-500/40 focus:ring-4 focus:ring-cyan-500/5 transition-all backdrop-blur-sm"
+            className="w-full h-full pl-12 pr-4 py-3.5 rounded-2xl bg-slate-900/50 border border-slate-800 text-slate-200 placeholder-slate-600 focus:outline-none focus:border-cyan-500/40 focus:ring-4 focus:ring-cyan-500/5 transition-all"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
           />
         </div>
 
-        {/* Status Filter Container */}
         <div className="relative flex-1 md:max-w-[200px] group min-h-[54px]">
           <select
             value={statusFilter}
             onChange={(e) => setStatusFilter(e.target.value)}
-            className="w-full h-full px-5 py-3.5 rounded-2xl bg-slate-900/50 border border-slate-800 text-slate-300 text-sm focus:outline-none focus:border-cyan-500/40 transition-all backdrop-blur-sm appearance-none cursor-pointer pr-10"
+            className="w-full h-full px-5 py-3.5 rounded-2xl bg-slate-900/50 border border-slate-800 text-slate-300 text-sm focus:outline-none focus:border-cyan-500/40 transition-all appearance-none cursor-pointer pr-10"
           >
             <option value="">Stock Availabilty</option>
             <option value="AVAILABLE">Available Only</option>
             <option value="OUT_OF_STOCK">Out Of Stock Only</option>
           </select>
-          {/* This absolute wrapper ensures the arrow is perfectly centered vertically */}
           <div className="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none">
             <ChevronDown
               size={16}
@@ -397,8 +380,7 @@ export default function Products() {
         </div>
       </div>
 
-      {/* Product List */}
-      <div className="relative rounded-[2.5rem] bg-slate-900/30 border border-slate-800/50 backdrop-blur-xl overflow-hidden shadow-2xl">
+      <div className="relative rounded-[2.5rem] bg-slate-900/30 border border-slate-800/50 overflow-hidden shadow-2xl">
         <div className="overflow-x-auto">
           <table className="w-full">
             <thead>
@@ -415,30 +397,16 @@ export default function Products() {
               {isLoading ? (
                 <tr>
                   <td colSpan={6} className="px-8 py-24 text-center">
-                    <div className="flex flex-col items-center gap-3">
-                      <Loader2 size={32} className="text-cyan-500 animate-spin" />
-                      <p className="text-sm text-slate-500 font-syne animate-pulse">Building your catalog...</p>
-                    </div>
+                    <Loader2 size={32} className="text-cyan-500 animate-spin mx-auto" />
                   </td>
                 </tr>
               ) : products.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-8 py-24 text-center">
-                    <div className="flex flex-col items-center gap-4 opacity-40">
-                      <Package size={48} className="text-slate-600" />
-                      <div>
-                        <p className="text-lg font-bold text-slate-400 font-syne">No products found</p>
-                        <p className="text-sm text-slate-600 italic">Try searching for something else or add a new item.</p>
-                      </div>
-                    </div>
-                  </td>
+                  <td colSpan={6} className="px-8 py-24 text-center text-slate-500 italic">No products found</td>
                 </tr>
               ) : (
                 products.map((item) => (
-                  <tr
-                    key={item.id}
-                    className="group hover:bg-slate-800/20 transition-all duration-300"
-                  >
+                  <tr key={item.id} className="group hover:bg-slate-800/20 transition-all duration-300">
                     <td className="px-8 py-6">
                       <div className="flex items-start gap-4">
                         <div className="mt-1 w-10 h-10 rounded-xl bg-slate-800 flex items-center justify-center text-cyan-500 border border-slate-700/50 group-hover:border-cyan-500/30 transition shadow-lg">
@@ -447,74 +415,38 @@ export default function Products() {
                         <div className="max-w-[180px]">
                           <p className="font-bold text-white text-base tracking-tight leading-tight">{item.name}</p>
                           {item.alias && (
-                            <p className="text-[10px] font-bold text-cyan-400/70 tracking-tight uppercase leading-none mt-1 group-hover:text-cyan-400 transition-colors">
-                              AKA: {item.alias}
-                            </p>
+                            <p className="text-[10px] font-bold text-cyan-400/70 tracking-tight uppercase leading-none mt-1">AKA: {item.alias}</p>
                           )}
-                          <p className="text-xs text-slate-500 mt-1 line-clamp-2 leading-relaxed">
-                            {item.description || "No description provided"}
-                          </p>
                         </div>
                       </div>
                     </td>
-                    {/* Column 1: Unit Price */}
+                    <td className="px-6 py-6 font-semibold text-slate-300">₹{item.price.toFixed(2)}</td>
+                    <td className="px-6 py-6 text-sm font-semibold text-slate-300">{item.gstPercentage}%</td>
                     <td className="px-6 py-6">
-                      <div className="flex items-center gap-1.5 font-semibold text-slate-300 tracking-tighter">
-                        <IndianRupee size={14} className="text-cyan-500" />
-                        {item.price.toFixed(2)}
-                      </div>
-                    </td>
-
-                    {/* Column 2: GST as Text */}
-                    <td className="px-6 py-6">
-                      <span className="text-sm font-semibold text-slate-300">
-                        {item.gstPercentage}%
-                      </span>
-                    </td>
-                    <td className="px-6 py-6">
-                      <div className="flex items-center gap-6">
-                        <div>
-                          <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold mb-0.5">SKU</p>
-                          <p className="text-sm text-slate-300 font-mono">{item.sku || 'N/A'}</p>
-                        </div>
+                      <div className="flex items-center gap-4 text-xs">
+                        <div><p className="text-slate-500 uppercase font-bold mb-0.5">SKU</p><p className="text-slate-300 font-mono">{item.sku || 'N/A'}</p></div>
                         <div className="w-px h-6 bg-slate-800" />
-                        <div>
-                          <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold mb-0.5">Unit</p>
-                          <p className="text-sm text-slate-400">{item.unit || '—'}</p>
-                        </div>
+                        <div><p className="text-slate-500 uppercase font-bold mb-0.5">Unit</p><p className="text-slate-400">{item.unit || '—'}</p></div>
                       </div>
                     </td>
                     <td className="px-6 py-6">
-                      <span className={`
-                          inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider
-                          ${item.status === 'AVAILABLE'
-                          ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/40'
-                          : 'bg-rose-500/10 text-rose-400 border border-rose-500/20 shadow-[0_0_15px_-5px_theme(colors.rose.500)]'
-                        }
-                        `}>
-                        <span className={`
-                              w-1.5 h-1.5 rounded-full 
-                            ${item.status === 'AVAILABLE' ? 'bg-emerald-400' : 'bg-rose-400 animate-pulse'}
-                        `} />
-
-                        {item.status.replace(/_/g, ' ')}
+                      <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider ${item.status === 'AVAILABLE' ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/40' : 'bg-rose-500/10 text-rose-400 border border-rose-500/20'}`}>
+                        {item.status}
                       </span>
                     </td>
                     <td className="px-8 py-6 text-right">
-                      <div className="flex items-center justify-end gap-2 transition-all duration-300">
+                      <div className="flex items-center justify-end gap-1.5 transition-all duration-300">
                         <button
                           onClick={() => { setEditingProduct(item); setIsModalOpen(true); }}
-                          className="p-2.5 rounded-xl bg-slate-800 text-slate-400 hover:text-cyan-400 hover:bg-slate-700 transition shadow-sm border border-slate-800/50"
-                          title="Edit Product"
+                          className="p-2 rounded-lg bg-slate-800 text-slate-400 hover:text-cyan-400 hover:bg-slate-700 transition border border-slate-800/50"
                         >
-                          <Edit3 size={16} />
+                          <Edit3 size={14} />
                         </button>
                         <button
                           onClick={() => handleDelete(item.id)}
-                          className="p-2.5 rounded-xl bg-slate-800/30 text-slate-500 hover:text-rose-500 hover:bg-rose-950/20 transition shadow-sm border border-slate-800/50"
-                          title="Delete Permanently"
+                          className="p-2 rounded-lg bg-slate-800/30 text-slate-500 hover:text-rose-500 hover:bg-rose-950/20 transition border border-slate-800/50"
                         >
-                          <Trash2 size={16} />
+                          <Trash2 size={14} />
                         </button>
                       </div>
                     </td>
@@ -526,7 +458,6 @@ export default function Products() {
         </div>
       </div>
 
-      {/* Pagination Footer */}
       {!isLoading && totalPages > 1 && (
         <div className="flex items-center justify-between px-2 pt-6 border-t border-slate-800/10">
           <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
@@ -541,27 +472,15 @@ export default function Products() {
               Prev
             </button>
             <div className="flex gap-1 items-center px-1">
-              {(() => {
-                const maxVisible = 3;
-                let startPage = Math.max(0, Math.min(currentPage, totalPages - maxVisible));
-                const endPage = Math.min(totalPages, startPage + maxVisible);
-
-                return [...Array(endPage - startPage)].map((_, i) => {
-                  const pageNum = startPage + i;
-                  return (
-                    <button
-                      key={pageNum}
-                      onClick={() => setCurrentPage(pageNum)}
-                      className={`w-8 h-8 rounded-lg text-xs font-bold transition-all ${currentPage === pageNum
-                        ? 'bg-cyan-500 text-slate-950 shadow-lg'
-                        : 'text-slate-500 hover:text-white'
-                        }`}
-                    >
-                      {pageNum + 1}
-                    </button>
-                  );
-                });
-              })()}
+              {[...Array(totalPages)].map((_, i) => (
+                <button
+                  key={i}
+                  onClick={() => setCurrentPage(i)}
+                  className={`w-8 h-8 rounded-lg text-xs font-bold transition-all ${currentPage === i ? 'bg-cyan-500 text-slate-950 shadow-lg' : 'text-slate-500 hover:text-white'}`}
+                >
+                  {i + 1}
+                </button>
+              ))}
             </div>
             <button
               onClick={() => setCurrentPage(prev => Math.min(totalPages - 1, prev + 1))}

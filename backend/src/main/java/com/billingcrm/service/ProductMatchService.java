@@ -37,10 +37,10 @@ public class ProductMatchService {
     private final JaroWinklerSimilarity jaroWinkler = new JaroWinklerSimilarity();
 
     /**
-     * Resolve a raw name to a Product (Active or Inactive).
+     * Resolve a raw name to a Product (Active or Inactive) for a specific user.
      * Never returns null — throws a meaningful exception when no match is found.
      */
-    public Product resolve(String rawName) {
+    public Product resolve(String rawName, Long userId) {
         if (rawName == null || rawName.isBlank()) {
             throw new BadRequestException("Product name must not be blank");
         }
@@ -48,33 +48,33 @@ public class ProductMatchService {
         String name = rawName.trim();
 
         // 1. Exact Name/Alias match (Prefer AVAILABLE)
-        List<Product> exactActive = productRepository.findByNameIgnoreCaseAndStatus(name, Product.Status.AVAILABLE);
+        List<Product> exactActive = productRepository.findByUserIdAndNameIgnoreCaseAndStatus(userId, name, Product.Status.AVAILABLE);
         if (!exactActive.isEmpty()) return exactActive.get(0);
 
-        List<Product> exactAliasActive = productRepository.findByAliasIgnoreCaseAndStatus(name, Product.Status.AVAILABLE);
+        List<Product> exactAliasActive = productRepository.findByUserIdAndAliasIgnoreCaseAndStatus(userId, name, Product.Status.AVAILABLE);
         if (!exactAliasActive.isEmpty()) return exactAliasActive.get(0);
 
-        List<Product> exactInactive = productRepository.findByNameIgnoreCaseAndStatus(name, Product.Status.OUT_OF_STOCK);
+        List<Product> exactInactive = productRepository.findByUserIdAndNameIgnoreCaseAndStatus(userId, name, Product.Status.OUT_OF_STOCK);
         if (!exactInactive.isEmpty()) return exactInactive.get(0);
 
-        List<Product> exactAliasInactive = productRepository.findByAliasIgnoreCaseAndStatus(name, Product.Status.OUT_OF_STOCK);
+        List<Product> exactAliasInactive = productRepository.findByUserIdAndAliasIgnoreCaseAndStatus(userId, name, Product.Status.OUT_OF_STOCK);
         if (!exactAliasInactive.isEmpty()) return exactAliasInactive.get(0);
 
         // 2. Contains match (Prefer AVAILABLE)
-        List<Product> containsActive = productRepository.findByNameContainingIgnoreCaseAndStatus(name, Product.Status.AVAILABLE);
+        List<Product> containsActive = productRepository.findByUserIdAndNameContainingIgnoreCaseAndStatus(userId, name, Product.Status.AVAILABLE);
         if (!containsActive.isEmpty()) {
             return containsActive.stream().min(Comparator.comparingInt(p -> p.getName().length())).get();
         }
 
-        List<Product> containsInactive = productRepository.findByNameContainingIgnoreCaseAndStatus(name, Product.Status.OUT_OF_STOCK);
+        List<Product> containsInactive = productRepository.findByUserIdAndNameContainingIgnoreCaseAndStatus(userId, name, Product.Status.OUT_OF_STOCK);
         if (!containsInactive.isEmpty()) {
             return containsInactive.stream().min(Comparator.comparingInt(p -> p.getName().length())).get();
         }
 
-        // 3. Full fuzzy match across ALL products
-        List<Product> allProducts = productRepository.findAll();
+        // 3. Full fuzzy match across ALL user's products
+        List<Product> allProducts = productRepository.findByUserId(userId);
         if (allProducts.isEmpty()) {
-            throw new ResourceNotFoundException("No products exist in database.");
+            throw new ResourceNotFoundException("No products exist for this user.");
         }
 
         Optional<ScoredProduct> best = allProducts.stream()

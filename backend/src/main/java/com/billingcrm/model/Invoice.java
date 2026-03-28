@@ -24,8 +24,12 @@ public class Invoice {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
+ 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id")
+    private User user;
 
-    @Column(unique = true, nullable = false, length = 30)
+    @Column(nullable = false, length = 30)
     private String invoiceNumber;
 
     @ManyToOne(fetch = FetchType.LAZY)

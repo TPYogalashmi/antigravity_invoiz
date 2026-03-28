@@ -200,7 +200,10 @@ const ManualBilling = () => {
           quantity: it.quantity,
           price: it.price,
           gstPercentage: it.gst
-        }))
+        })),
+        dueDate: billingType === 'B2B' 
+          ? new Date(new Date().setMonth(new Date().getMonth() + 1)).toISOString().split('T')[0]
+          : null
       }
       const resp = await backendClient.post('/invoices', payload)
       setCreatedInvoice(resp.data?.data)

@@ -10,14 +10,16 @@ import org.springframework.data.domain.Pageable;
 public interface InvoiceService {
     InvoiceResponse create(InvoiceRequest req, Long userId);
 
-    InvoiceResponse findById(Long id);
+    InvoiceResponse findById(Long id, Long userId);
 
-    InvoiceResponse updateStatus(Long id, String status);
+    InvoiceResponse updateStatus(Long id, String status, Long userId);
 
-    InvoiceResponse updateDueDate(Long id, LocalDate dueDate);
+    InvoiceResponse updateDueDate(Long id, LocalDate dueDate, Long userId);
 
     Page<InvoiceResponse> findAll(String search, String status, Long customerId, LocalDate startDate, LocalDate endDate,
-            BigDecimal minAmount, String type, Pageable pageable);
+            BigDecimal minAmount, String type, Long userId, Pageable pageable);
 
-    void delete(Long id);
+    void delete(Long id, Long userId);
+
+    void refreshOverdueInvoices(Long userId);
 }

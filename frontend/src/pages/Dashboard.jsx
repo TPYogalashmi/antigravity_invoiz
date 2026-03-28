@@ -37,11 +37,23 @@ const fetchDashboardStats = async () => {
 
 export default function Dashboard() {
   const navigate = useNavigate();
-  const { data: stats, isLoading, error } = useQuery({
+  const { data: stats, isLoading, error, refetch } = useQuery({
     queryKey: ['dashboard-stats'],
     queryFn: fetchDashboardStats,
     refetchInterval: 60000, // Refresh every minute
   });
+
+  React.useEffect(() => {
+    const refreshOverdue = async () => {
+      try {
+        await backendClient.post('/invoices/refresh-overdue');
+        refetch(); // Reload stats after refresh
+      } catch (err) {
+        console.error('Failed to refresh overdue invoices', err);
+      }
+    };
+    refreshOverdue();
+  }, [refetch]);
 
   if (isLoading) {
     return (
