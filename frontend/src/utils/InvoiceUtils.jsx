@@ -134,6 +134,12 @@ export const InvoicePreview = ({ invoice }) => {
             <span className="text-slate-500">Subtotal</span>
             <span className="font-semibold text-slate-950">Rs.{(invoice.totalAmount || 0).toFixed(2)}</span>
           </div>
+          {invoice.discountAmount > 0 && (
+            <div className="flex justify-between text-sm text-emerald-600">
+              <span className="font-bold uppercase text-[10px]">Discount ({invoice.discountPercent}%)</span>
+              <span className="font-bold">- Rs.{(invoice.discountAmount || 0).toFixed(2)}</span>
+            </div>
+          )}
           <div className="flex justify-between text-sm">
             <span className="text-slate-500">Total GST</span>
             <span className="font-semibold text-slate-950">Rs.{(invoice.totalGST || 0).toFixed(2)}</span>
@@ -234,6 +240,14 @@ export const generateInvoicePDF = (invoice) => {
   currentY += 8;
   doc.text("Subtotal:", 130, currentY);
   doc.text(`${(invoice.totalAmount || 0).toFixed(2)}`, 160, currentY);
+
+  if (invoice.discountAmount > 0) {
+    currentY += 6;
+    doc.setTextColor(16, 185, 129); // emerald-600
+    doc.text(`Discount (${invoice.discountPercent}%):`, 130, currentY);
+    doc.text(`- ${(invoice.discountAmount || 0).toFixed(2)}`, 160, currentY);
+    doc.setTextColor(50, 50, 50);
+  }
 
   currentY += 6;
   doc.text("Total GST:", 130, currentY);

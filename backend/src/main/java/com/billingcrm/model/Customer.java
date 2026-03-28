@@ -5,6 +5,7 @@ import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import lombok.*;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -39,6 +40,10 @@ public class Customer {
     private String country;
     private String postalCode;
     private String taxId;
+    @Column(precision = 5, scale = 2)
+    @Builder.Default
+    private BigDecimal agreedDiscount = java.math.BigDecimal.ZERO;
+
     private String notes;
 
     @Enumerated(EnumType.STRING)

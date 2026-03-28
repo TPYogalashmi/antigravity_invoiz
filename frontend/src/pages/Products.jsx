@@ -14,8 +14,8 @@ import Button from '../components/ui/Button'
 // ── Validation Schema ────────────────────────────────────────────────────────
 const productSchema = z.object({
   name: z.string().min(1, 'Product name is required'),
-  alias: z.string().optional(),
-  description: z.string().optional(),
+  alias: z.string().nullish().or(z.literal('')),
+  description: z.string().nullish().or(z.literal('')),
   price: z.preprocess(
     (val) => (val === '' ? undefined : Number(val)),
     z.number({ required_error: 'Price is required' }).min(0.01, 'Price must be positive')
@@ -24,8 +24,8 @@ const productSchema = z.object({
     (val) => (val === '' ? 0 : Number(val)),
     z.number().min(0, 'GST % cannot be negative').max(100, 'GST % cannot exceed 100')
   ),
-  sku: z.string().optional(),
-  unit: z.string().optional().default('Unit'),
+  sku: z.string().nullish().or(z.literal('')),
+  unit: z.string().nullish().or(z.literal('')),
   status: z.enum(['AVAILABLE', 'OUT_OF_STOCK']).default('AVAILABLE'),
 })
 
@@ -55,15 +55,15 @@ function ProductModal({ isOpen, onClose, product, onSave }) {
   // Synchronize form when modal opens
   useEffect(() => {
     if (isOpen) {
-      reset(product || {
-        name: '',
-        alias: '',
-        description: '',
-        price: 0,
-        gstPercentage: 0,
-        sku: '',
-        unit: 'Pcs',
-        status: 'AVAILABLE',
+      reset({
+        name: product?.name || '',
+        alias: product?.alias || '',
+        description: product?.description || '',
+        price: product?.price || 0,
+        gstPercentage: product?.gstPercentage || 0,
+        sku: product?.sku || '',
+        unit: product?.unit || 'Pcs',
+        status: product?.status || 'AVAILABLE',
       })
     }
   }, [isOpen, product, reset])
@@ -140,9 +140,11 @@ function ProductModal({ isOpen, onClose, product, onSave }) {
                     type="text"
                     {...register('alias')}
                     placeholder="e.g. Maska Chaska"
-                    className="w-full pl-10 pr-4 py-3 rounded-2xl bg-slate-800/50 border border-slate-800 text-sm text-white focus:border-cyan-500/50 outline-none ring-2 ring-cyan-500/10 transition"
+                    className={`w-full pl-10 pr-4 py-3 rounded-2xl bg-slate-800/50 border text-sm text-white focus:border-cyan-500/50 outline-none ring-2 ring-cyan-500/10 transition ${errors.alias ? 'border-rose-500/60' : 'border-slate-800'
+                      }`}
                   />
                 </div>
+                {errors.alias && <p className="mt-2 text-xs text-rose-400">{errors.alias.message}</p>}
               </div>
 
               {/* SKU */}
@@ -154,8 +156,10 @@ function ProductModal({ isOpen, onClose, product, onSave }) {
                   type="text"
                   {...register('sku')}
                   placeholder="VB-001"
-                  className="w-full px-4 py-3 rounded-2xl bg-slate-800/50 border border-slate-800 text-sm text-white focus:border-cyan-500/50 outline-none ring-2 ring-cyan-500/10 transition"
+                  className={`w-full px-4 py-3 rounded-2xl bg-slate-800/50 border text-sm text-white focus:border-cyan-500/50 outline-none ring-2 ring-cyan-500/10 transition ${errors.sku ? 'border-rose-500/60' : 'border-slate-800'
+                    }`}
                 />
+                {errors.sku && <p className="mt-2 text-xs text-rose-400">{errors.sku.message}</p>}
               </div>
 
               {/* Unit */}
@@ -262,18 +266,25 @@ export default function Products() {
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [editingProduct, setEditingProduct] = useState(null)
   const [statusFilter, setStatusFilter] = useState('')
+  const [currentPage, setCurrentPage] = useState(0)
+  const [totalPages, setTotalPages] = useState(0)
+  const [totalElements, setTotalElements] = useState(0)
 
-  const fetchProductsList = useCallback(async (search = '') => {
+  const fetchProductsList = useCallback(async (search = '', page = 0) => {
     setIsLoading(true)
     try {
       const response = await backendClient.get('/products', {
         params: {
           search,
           status: statusFilter || undefined,
-          size: 100
+          page,
+          size: 5
         }
       })
-      setProducts(response.data?.data?.content || [])
+      const data = response.data?.data;
+      setProducts(data?.content || [])
+      setTotalPages(data?.totalPages || 0)
+      setTotalElements(data?.totalElements || 0)
     } catch (err) {
       console.error('Failed to fetch products:', err)
       toast.error('Failed to load product catalogue')
@@ -285,10 +296,15 @@ export default function Products() {
   // Debounced search effect
   useEffect(() => {
     const delay = setTimeout(() => {
-      fetchProductsList(searchTerm)
+      fetchProductsList(searchTerm, currentPage)
     }, 400)
     return () => clearTimeout(delay)
-  }, [searchTerm, statusFilter, fetchProductsList])
+  }, [searchTerm, statusFilter, currentPage, fetchProductsList])
+
+  // Reset page on filter change
+  useEffect(() => {
+    setCurrentPage(0)
+  }, [searchTerm, statusFilter])
 
   const handleSave = async (data) => {
     try {
@@ -505,6 +521,54 @@ export default function Products() {
           </table>
         </div>
       </div>
+
+      {/* Pagination Footer */}
+      {!isLoading && totalPages > 1 && (
+        <div className="flex items-center justify-between px-2 pt-6 border-t border-slate-800/10">
+          <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+            Showing <span className="text-slate-300">{(currentPage * 5) + 1}</span> to <span className="text-slate-300">{Math.min((currentPage + 1) * 5, totalElements)}</span> of <span className="text-slate-300">{totalElements}</span> items
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setCurrentPage(prev => Math.max(0, prev - 1))}
+              disabled={currentPage === 0}
+              className="px-4 py-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition text-xs font-bold"
+            >
+              Prev
+            </button>
+            <div className="flex gap-1 items-center px-1">
+              {(() => {
+                const maxVisible = 3;
+                let startPage = Math.max(0, Math.min(currentPage, totalPages - maxVisible));
+                const endPage = Math.min(totalPages, startPage + maxVisible);
+
+                return [...Array(endPage - startPage)].map((_, i) => {
+                  const pageNum = startPage + i;
+                  return (
+                    <button
+                      key={pageNum}
+                      onClick={() => setCurrentPage(pageNum)}
+                      className={`w-8 h-8 rounded-lg text-xs font-bold transition-all ${currentPage === pageNum
+                        ? 'bg-cyan-500 text-slate-950 shadow-lg'
+                        : 'text-slate-500 hover:text-white'
+                        }`}
+                    >
+                      {pageNum + 1}
+                    </button>
+                  );
+                });
+              })()}
+            </div>
+            <button
+              onClick={() => setCurrentPage(prev => Math.min(totalPages - 1, prev + 1))}
+              disabled={currentPage === totalPages - 1}
+              className="px-4 py-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition text-xs font-bold"
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
 
       <ProductModal
         isOpen={isModalOpen}

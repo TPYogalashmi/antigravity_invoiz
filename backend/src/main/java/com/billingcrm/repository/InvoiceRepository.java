@@ -21,13 +21,16 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
 
         Page<Invoice> findByCustomerId(Long customerId, Pageable pageable);
 
+        java.util.List<Invoice> findByCustomerIdOrderByIssueDateDesc(Long customerId);
+
         @Query("""
                SELECT i FROM Invoice i
                LEFT JOIN i.customer c
                WHERE (:search IS NULL OR
                       LOWER(i.invoiceNumber) LIKE :search OR
                       LOWER(c.name) LIKE :search OR
-                      LOWER(c.company) LIKE :search)
+                      LOWER(c.company) LIKE :search OR
+                      LOWER(c.phone) LIKE :search)
                AND (:status IS NULL OR i.status = :status)
                AND (:customerId IS NULL OR c.id = :customerId)
                AND (:startDate IS NULL OR i.issueDate >= :startDate)
@@ -50,12 +53,12 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
         @Query("SELECT COALESCE(SUM(i.finalAmount),0) FROM Invoice i WHERE i.status = 'PAID'")
         BigDecimal sumTotalRevenue();
 
-        @Query("SELECT COALESCE(SUM(i.finalAmount),0) FROM Invoice i WHERE i.status = 'PENDING'")
-        BigDecimal sumPendingRevenue();
+        @Query("SELECT COALESCE(SUM(i.finalAmount),0) FROM Invoice i WHERE i.status = 'UNPAID'")
+        BigDecimal sumUnpaidRevenue();
 
         long countByStatus(Invoice.Status status);
 
-        @Query("SELECT COUNT(i) FROM Invoice i WHERE i.dueDate < :today AND i.status = 'PENDING'")
+        @Query("SELECT COUNT(i) FROM Invoice i WHERE i.dueDate < :today AND i.status = 'UNPAID'")
         long countOverdue(@Param("today") LocalDate today);
 
         @Query("""

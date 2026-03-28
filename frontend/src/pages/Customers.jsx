@@ -1,4 +1,5 @@
 import { Users, Plus, Search, Mail, Phone, MapPin, MoreVertical, Trash2, Edit2, AlertCircle, Loader2 } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import { useState, useEffect, useCallback } from 'react'
 import Button from '../components/ui/Button'
 import { backendClient } from '../api/axios'
@@ -324,6 +325,7 @@ function CustomerModal({ isOpen, onClose, customer, onSave }) {
 
 // ── Main Customers Component ──────────────────────────────────────────────────
 export default function Customers() {
+  const navigate = useNavigate()
   const [customers, setCustomers] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
@@ -448,8 +450,16 @@ export default function Customers() {
         ) : customers.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5">
             {customers.map((c) => (
-              <div key={c.id} className="relative p-6 rounded-2xl bg-slate-900 border border-slate-800 hover:border-slate-700 transition group overflow-hidden shadow-sm hover:shadow-cyan-500/5">
-                <div className="absolute top-6 right-6 flex flex-col items-end gap-2">
+              <div 
+                key={c.id} 
+                onClick={() => navigate(`/customers/${c.id}`)}
+                className={`relative p-6 rounded-2xl transition group overflow-hidden shadow-sm cursor-pointer border ${
+                  c.status === 'SUSPENDED' 
+                    ? 'bg-rose-950/20 border-rose-500/30 hover:border-rose-500/50 hover:shadow-rose-500/5' 
+                    : 'bg-slate-900 border-slate-800 hover:border-slate-700 hover:shadow-cyan-500/5'
+                }`}
+              >
+                <div className="absolute top-6 right-6 flex flex-col items-end gap-2 z-10">
 
                   {/* Status Badge */}
                   <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md uppercase tracking-wider border ${c.status === 'ACTIVE'
@@ -464,7 +474,8 @@ export default function Customers() {
                   {/* Icons BELOW badge */}
                   <div className="flex items-center gap-1">
                     <button
-                      onClick={() => {
+                      onClick={(e) => {
+                        e.stopPropagation()
                         setEditingCustomer(c)
                         setIsModalOpen(true)
                       }}
@@ -475,7 +486,10 @@ export default function Customers() {
                     </button>
 
                     <button
-                      onClick={() => handleDelete(c.id)}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        handleDelete(c.id)
+                      }}
                       className="p-1.5 rounded-md bg-rose-500/10 text-rose-500 hover:bg-rose-500 hover:text-white transition"
                       title="Delete"
                     >

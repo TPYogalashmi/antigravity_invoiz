@@ -56,6 +56,10 @@ public class Product {
     @Builder.Default
     private Status status = Status.AVAILABLE;
 
+    @Column(precision = 5, scale = 2)
+    @Builder.Default
+    private BigDecimal agreedDiscount = BigDecimal.ZERO;
+
     @OneToMany(mappedBy = "product", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @Builder.Default
     private List<InvoiceItem> invoiceItems = new ArrayList<>();

@@ -37,7 +37,7 @@ public interface ProductRepository extends JpaRepository<Product, Long> {
     List<Product> findByNameContainingIgnoreCaseAndStatus(String name, Product.Status status);
 
     @Query("""
-            SELECT p, AVG(ii.quantity) as avgQty FROM Product p
+            SELECT p, AVG(ii.quantity) as avgQty, COUNT(DISTINCT i.id) as purchaseCount FROM Product p
             JOIN InvoiceItem ii ON ii.product.id = p.id
             JOIN Invoice i ON ii.invoice.id = i.id
             WHERE i.customer.id = :customerId

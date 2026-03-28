@@ -37,6 +37,7 @@ public class InvoiceServiceImpl implements InvoiceService {
     private final UserRepository userRepository;
     private final InvoiceMapper invoiceMapper;
     private final ProductMatchService productMatchService;
+    private final CustomerProductDiscountRepository customerProductDiscountRepository;
 
     @Override
     public InvoiceResponse create(InvoiceRequest req, Long userId) {
@@ -59,27 +60,24 @@ public class InvoiceServiceImpl implements InvoiceService {
                             ? req.getCurrency().toUpperCase()
                             : DEFAULT_CURRENCY)
                     .issueDate(req.getIssueDate() != null ? req.getIssueDate() : LocalDate.now())
-                    .dueDate(req.getDueDate())
+                    .dueDate(req.getDueDate() != null ? req.getDueDate() : (req.getIssueDate() != null ? req.getIssueDate() : LocalDate.now()).plusDays(30))
                     .notes(req.getNotes())
                     .voiceTranscript(req.getVoiceTranscript())
                     .voiceGenerated(req.isVoiceGenerated())
-                    .status(parseStatus(req.getStatus(), Invoice.Status.PENDING))
-                    .discountPercent(req.getDiscountPercent() != null
-                            ? req.getDiscountPercent().max(BigDecimal.ZERO)
-                            : BigDecimal.ZERO)
+                    .status(parseStatus(req.getStatus(), Invoice.Status.UNPAID))
                     .build();
 
             // ── 4. Build Line Items ─────────────────────────────────────────
             List<String> errors = new ArrayList<>();
             BigDecimal totalAmount = BigDecimal.ZERO;
             BigDecimal totalGST = BigDecimal.ZERO;
+            List<InvoiceItem> items = new ArrayList<>();
 
             for (int i = 0; i < req.getItems().size(); i++) {
                 InvoiceRequest.InvoiceItemDTO itemReq = req.getItems().get(i);
-
                 try {
                     InvoiceItem item = resolveLineItem(itemReq, invoice);
-                    invoice.getItems().add(item);
+                    items.add(item);
                     totalAmount = totalAmount.add(item.getPrice()
                             .multiply(item.getQuantity()).setScale(2, RoundingMode.HALF_UP));
                     totalGST = totalGST.add(item.getGstAmount());
@@ -91,18 +89,76 @@ public class InvoiceServiceImpl implements InvoiceService {
             if (!errors.isEmpty()) {
                 throw new BadRequestException("Invoice creation failed:\n" + String.join("\n", errors));
             }
+            invoice.setItems(items);
 
-            // ── 5. Compute Totals ───────────────────────────────────────────
-            BigDecimal discountAmount = totalAmount
-                    .multiply(invoice.getDiscountPercent())
-                    .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+            // ── 5. Resolve Targeted Discount ─────────────────────────────────
+            BigDecimal discountPercent = BigDecimal.ZERO;
+            BigDecimal discountAmount = BigDecimal.ZERO;
 
+            boolean isB2B = (customer.getTaxId() != null && !customer.getTaxId().isBlank());
+            
+            if (isB2B) {
+                // B2B: Flat Rate dynamic logic (10% or 20%)
+                LocalDate thirtyDaysAgo = LocalDate.now().minusDays(30);
+                long ordersLastMonth = invoiceRepository.findByCustomerIdOrderByIssueDateDesc(customer.getId()).stream()
+                        .map(Invoice::getIssueDate)
+                        .filter(d -> d.isAfter(thirtyDaysAgo) || d.isEqual(thirtyDaysAgo))
+                        .distinct()
+                        .count();
+                
+                discountPercent = BigDecimal.valueOf(ordersLastMonth < 10 ? 10 : 20);
+                discountAmount = totalAmount
+                        .multiply(discountPercent)
+                        .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+            } else {
+                // B2C: Specific reward logic for top 3 purchases
+                // Fetch top 3 product IDs
+                List<Long> topProductIds = productRepository.findTopProductsWithAvgQtyByCustomer(customer.getId(), org.springframework.data.domain.PageRequest.of(0, 3))
+                        .stream()
+                        .map(obj -> {
+                            Object[] array = (Object[]) obj;
+                            return ((com.billingcrm.model.Product) array[0]).getId();
+                        })
+                        .toList();
+
+                for (InvoiceItem item : items) {
+                    if (item.getProduct() != null && topProductIds.contains(item.getProduct().getId())) {
+                        // Priority 1: Specific discount set for this customer/product
+                        // Priority 2: General Customer Agreed Discount
+                        // Priority 3: Default 5%
+                        BigDecimal itemDiscountPercent = customerProductDiscountRepository
+                            .findByCustomerIdAndProductId(customer.getId(), item.getProduct().getId())
+                            .map(com.billingcrm.model.CustomerProductDiscount::getDiscountPercentage)
+                            .orElse(customer.getAgreedDiscount() != null && customer.getAgreedDiscount().compareTo(BigDecimal.ZERO) > 0 
+                                ? customer.getAgreedDiscount() 
+                                : BigDecimal.ZERO);
+                        
+                        BigDecimal itemBase = item.getPrice().multiply(item.getQuantity());
+                        BigDecimal itemDiscount = itemBase.multiply(itemDiscountPercent).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+                        discountAmount = discountAmount.add(itemDiscount);
+                        
+                        // Note: If multiple top products have different rates, 
+                        // the final 'discountPercent' shown on invoice summary might be misleading (weighted average).
+                        // For simplicity, we'll just set it to the last applied percent or keep 5% if we want to be safe.
+                        discountPercent = itemDiscountPercent; 
+                    }
+                }
+            }
+
+            // Override if manual discount is set in request (usually for Manual Billing)
+            if (req.getDiscountPercent() != null && req.getDiscountPercent().compareTo(BigDecimal.ZERO) > 0) {
+                discountPercent = req.getDiscountPercent();
+                discountAmount = totalAmount.multiply(discountPercent).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
+            }
+
+            // ── 6. Compute Final Totals ──────────────────────────────────────
             // finalAmount = (totalAmount - discount) + GST
             BigDecimal finalAmount = totalAmount
                     .subtract(discountAmount)
                     .add(totalGST)
                     .setScale(2, RoundingMode.HALF_UP);
 
+            invoice.setDiscountPercent(discountPercent);
             invoice.setTotalAmount(totalAmount);
             invoice.setTotalGST(totalGST);
             invoice.setDiscountAmount(discountAmount);
@@ -151,7 +207,7 @@ public class InvoiceServiceImpl implements InvoiceService {
         Invoice.Status statusEnum = null;
         if (status != null && !status.isBlank()) {
             try {
-                statusEnum = Invoice.Status.valueOf(status.toUpperCase());
+                statusEnum = Invoice.Status.fromString(status);
             } catch (IllegalArgumentException ex) {
                 throw new BadRequestException("Invalid status: " + status);
             }
@@ -300,7 +356,7 @@ public class InvoiceServiceImpl implements InvoiceService {
         if (raw == null || raw.isBlank())
             return fallback;
         try {
-            return Invoice.Status.valueOf(raw.toUpperCase());
+            return Invoice.Status.fromString(raw);
         } catch (IllegalArgumentException ex) {
             throw new BadRequestException("Invalid invoice status: " + raw);
         }

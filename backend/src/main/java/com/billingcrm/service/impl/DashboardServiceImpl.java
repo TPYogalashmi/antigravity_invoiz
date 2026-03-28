@@ -26,11 +26,11 @@ public class DashboardServiceImpl implements DashboardService {
     public DashboardStatsResponse getStats() {
         return DashboardStatsResponse.builder()
             .totalRevenue(invoiceRepository.sumTotalRevenue())
-            .pendingRevenue(invoiceRepository.sumPendingRevenue())
+            .pendingRevenue(invoiceRepository.sumUnpaidRevenue())
             .totalCustomers(customerRepository.count())
             .activeCustomers(customerRepository.countByStatus(Customer.Status.ACTIVE))
             .totalInvoices(invoiceRepository.count())
-            .pendingInvoices(invoiceRepository.countByStatus(Invoice.Status.PENDING))
+            .pendingInvoices(invoiceRepository.countByStatus(Invoice.Status.UNPAID))
             .overdueInvoices(invoiceRepository.countOverdue(LocalDate.now()))
             .paidInvoices(invoiceRepository.countByStatus(Invoice.Status.PAID))
             .voiceSessions(voiceSessionRepository.count())

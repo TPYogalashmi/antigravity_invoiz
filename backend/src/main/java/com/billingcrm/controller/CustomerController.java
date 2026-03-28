@@ -2,6 +2,7 @@ package com.billingcrm.controller;
 
 import com.billingcrm.dto.request.CustomerRequest;
 import com.billingcrm.dto.response.ApiResponse;
+import com.billingcrm.dto.response.CustomerProfileResponse;
 import com.billingcrm.dto.response.CustomerResponse;
 import com.billingcrm.service.CustomerService;
 import jakarta.validation.Valid;
@@ -52,6 +53,11 @@ public class CustomerController {
         return ResponseEntity.ok(ApiResponse.success(customerService.findById(id)));
     }
 
+    @GetMapping("/{id}/profile")
+    public ResponseEntity<ApiResponse<CustomerProfileResponse>> getProfile(@PathVariable Long id) {
+        return ResponseEntity.ok(ApiResponse.success(customerService.getProfile(id)));
+    }
+
     @PutMapping("/{id}")
     public ResponseEntity<ApiResponse<CustomerResponse>> update(
             @PathVariable Long id,
@@ -63,5 +69,22 @@ public class CustomerController {
     public ResponseEntity<ApiResponse<Void>> delete(@PathVariable Long id) {
         customerService.delete(id);
         return ResponseEntity.ok(ApiResponse.success("Customer suspended", null));
+    }
+
+    @PatchMapping("/{id}/specific-discounts/{productId}")
+    public ResponseEntity<ApiResponse<Void>> updateSpecificDiscount(
+            @PathVariable Long id,
+            @PathVariable Long productId,
+            @RequestParam java.math.BigDecimal discount) {
+        customerService.updateSpecificDiscount(id, productId, discount);
+        return ResponseEntity.ok(ApiResponse.success("Discount updated", null));
+    }
+
+    @PatchMapping("/{id}/overall-discount")
+    public ResponseEntity<ApiResponse<Void>> updateOverallDiscount(
+            @PathVariable Long id,
+            @RequestParam java.math.BigDecimal discount) {
+        customerService.updateOverallDiscount(id, discount);
+        return ResponseEntity.ok(ApiResponse.success("Overall discount updated", null));
     }
 }

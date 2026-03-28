@@ -23,6 +23,7 @@ public class CustomerResponse {
     private String country;
     private String postalCode;
     private String taxId;
+    private java.math.BigDecimal agreedDiscount;
     private String notes;
     private String status;
     private long totalInvoices;

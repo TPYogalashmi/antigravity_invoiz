@@ -9,6 +9,7 @@ import Customers from '../pages/Customers'
 import Products from '../pages/Products'
 import VoiceBilling from '../pages/VoiceBilling'
 import ManualBilling from '../pages/ManualBilling'
+import CustomerProfile from '../pages/CustomerProfile'
 
 function ProtectedRoute({ children }) {
   const token = useAuthStore((s) => s.token)
@@ -54,7 +55,10 @@ export default function AppRoutes() {
         <Route index element={<Navigate to="/dashboard" replace />} />
         <Route path="dashboard"     element={<Dashboard />} />
         <Route path="invoices"      element={<Invoices />} />
-        <Route path="customers"     element={<Customers />} />
+        <Route path="customers">
+          <Route index element={<Customers />} />
+          <Route path=":id" element={<CustomerProfile />} />
+        </Route>
         <Route path="products"      element={<Products />} />
         <Route path="voice-billing" element={<VoiceBilling />} />
         <Route path="manual-billing" element={<ManualBilling />} />

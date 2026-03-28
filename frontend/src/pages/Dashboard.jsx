@@ -22,7 +22,7 @@ const stats = [
     border: 'border-cyan-500/20',
   },
   {
-    label: 'Pending Invoices',
+    label: 'Unpaid Invoices',
     value: '37',
     change: '-8.1%',
     up: false,
@@ -45,7 +45,7 @@ const stats = [
 
 const recentInvoices = [
   { id: 'INV-0041', customer: 'Apex Corp',       amount: '$3,200', status: 'Paid',    date: 'Mar 20' },
-  { id: 'INV-0040', customer: 'NovaTech Ltd',    amount: '$1,875', status: 'Pending', date: 'Mar 19' },
+  { id: 'INV-0040', customer: 'NovaTech Ltd',    amount: '$1,875', status: 'Unpaid',  date: 'Mar 19' },
   { id: 'INV-0039', customer: 'BlueWave Inc',    amount: '$5,040', status: 'Paid',    date: 'Mar 18' },
   { id: 'INV-0038', customer: 'Stark Solutions', amount: '$920',   status: 'Overdue', date: 'Mar 15' },
   { id: 'INV-0037', customer: 'Orion Ventures',  amount: '$2,400', status: 'Paid',    date: 'Mar 14' },
@@ -53,7 +53,7 @@ const recentInvoices = [
 
 const statusStyles = {
   Paid:    'bg-emerald-500/10 text-emerald-400 border-emerald-500/20',
-  Pending: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
+  Unpaid:  'bg-amber-500/10 text-amber-400 border-amber-500/20',
   Overdue: 'bg-rose-500/10 text-rose-400 border-rose-500/20',
 }
 

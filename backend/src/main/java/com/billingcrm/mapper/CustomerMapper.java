@@ -43,12 +43,15 @@ public class CustomerMapper {
                 .notes(c.getNotes())
                 .status(c.getStatus().name())
                 .totalInvoices(c.getInvoices() != null ? c.getInvoices().size() : 0L)
+                .agreedDiscount(c.getAgreedDiscount())
                 .createdAt(c.getCreatedAt())
                 .updatedAt(c.getUpdatedAt())
                 .build();
     }
 
     public void updateEntity(Customer customer, CustomerRequest req) {
+        if (req.getAgreedDiscount() != null)
+            customer.setAgreedDiscount(req.getAgreedDiscount());
         if (req.getName() != null)
             customer.setName(req.getName());
         if (req.getPhone() != null)

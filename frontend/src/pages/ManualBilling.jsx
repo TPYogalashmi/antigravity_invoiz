@@ -3,7 +3,7 @@ import {
   ArrowLeft, Plus, Trash2, Search, IndianRupee,
   Building2, User, Box, Save, Download, CheckCircle2,
   Loader2, Calculator, Info, FileText,
-  ChevronLeft, ChevronRight, ShoppingCart
+  ChevronLeft, ChevronRight, ShoppingCart, XCircle, MoreVertical
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { backendClient } from '../api/axios'
@@ -32,8 +32,18 @@ const ManualBilling = () => {
 
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [createdInvoice, setCreatedInvoice] = useState(null)
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false)
 
   // --- Fetch Suggestions ---
+  const fetchCustomerDetails = useCallback(async (customerId) => {
+    try {
+      const resp = await backendClient.get(`/customers/${customerId}/profile`)
+      setSelectedCustomer(prev => ({ ...prev, ...resp.data?.data }))
+    } catch (err) {
+      console.error('Failed to fetch customer profile', err)
+    }
+  }, [])
+
   const fetchCustomerSuggestions = useCallback(async (query, page = 0) => {
     if (!query || query.length < 1) {
       setCustomerSuggestions([])
@@ -147,7 +157,24 @@ const ManualBilling = () => {
 
   const subtotal = items.reduce((acc, it) => acc + (it.price * it.quantity), 0)
   const totalTax = items.reduce((acc, it) => acc + (it.price * it.quantity * it.gst / 100), 0)
-  const finalTotal = subtotal + totalTax
+
+  // Calculate dynamic discount
+  let discountAmount = 0
+  if (selectedCustomer) {
+    if (billingType === 'B2B') {
+      const rate = selectedCustomer.customer?.agreedDiscount || 0
+      discountAmount = (subtotal * rate) / 100
+    } else {
+      items.forEach(it => {
+        const config = selectedCustomer.configuredDiscounts?.find(d => d.productId === it.productId)
+        if (config) {
+          discountAmount += (it.price * it.quantity * config.agreedDiscount) / 100
+        }
+      })
+    }
+  }
+
+  const finalTotal = subtotal + totalTax - discountAmount
 
   const handleCreateInvoice = async () => {
     if (!selectedCustomer && !customerSearch) {
@@ -183,50 +210,92 @@ const ManualBilling = () => {
     }
   }
 
+  const handleUpdateStatus = async (status) => {
+    if (!createdInvoice) return
+    setIsUpdatingStatus(true)
+    try {
+      await backendClient.patch(`/invoices/${createdInvoice.id}/status`, null, {
+        params: { status }
+      })
+      setCreatedInvoice({ ...createdInvoice, status })
+      toast.success(`Invoice marked as ${status.toLowerCase()}`)
+    } catch (err) {
+      toast.error('Status update failed')
+    } finally {
+      setIsUpdatingStatus(false)
+    }
+  }
+
+  const handleUpdateDiscount = async (productId, val) => {
+    if (!selectedCustomer) return
+    try {
+      if (productId) {
+        await backendClient.patch(`/customers/${selectedCustomer.id}/specific-discounts/${productId}`, null, {
+          params: { discount: parseFloat(val) || 0 }
+        })
+      } else {
+        await backendClient.patch(`/customers/${selectedCustomer.id}/overall-discount`, null, {
+          params: { discount: parseFloat(val) || 0 }
+        })
+      }
+      // Refresh details
+      fetchCustomerDetails(selectedCustomer.id)
+      toast.success('Reward percentage updated')
+    } catch (err) {
+      toast.error('Failed to update discount')
+    }
+  }
+
   if (createdInvoice) {
     return (
       <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-        {/* Header / Actions Bar */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 p-8 rounded-[2.5rem] bg-slate-900 border border-slate-800 shadow-xl overflow-visible">
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center p-8 bg-slate-900 border border-slate-800 rounded-[2.5rem] gap-6 shadow-2xl relative overflow-visible">
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-emerald-400 border border-emerald-500/20">
-              <CheckCircle2 size={24} />
+            <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-emerald-400 border border-emerald-500/20 shadow-inner">
+              <CheckCircle2 size={28} />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-white font-syne tracking-tight">Generated Invoice</h1>
-              <p className="text-sm font-mono text-cyan-400 font-bold uppercase tracking-widest mt-0.5 opacity-80">Ref: {createdInvoice.invoiceNumber}</p>
+              <h1 className="text-2xl font-bold text-white font-syne tracking-tight">Invoice Generated</h1>
+              <p className="text-[11px] font-mono text-cyan-400 font-black uppercase tracking-widest mt-0.5 opacity-80">Ref: {createdInvoice.invoiceNumber}</p>
             </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
-            <Button
-              variant="outline"
-              icon={Download}
+            <button
               onClick={() => generateInvoicePDF(createdInvoice)}
-              className="border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/10 rounded-2xl"
+              className="flex items-center gap-2 px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-[11px] uppercase tracking-widest rounded-2xl shadow-lg shadow-emerald-500/20 transition-all active:scale-95"
             >
-              Download PDF
-            </Button>
-            <Button
-              variant="outline"
-              icon={Plus}
-              onClick={() => { setCreatedInvoice(null); setSelectedCustomer(null); setItems([]); }}
-              className="border-slate-700 text-slate-300 hover:bg-slate-800 rounded-2xl"
+              <Download size={14} /> PDF
+            </button>
+
+            {createdInvoice.status !== 'PAID' && createdInvoice.status !== 'CANCELLED' && (
+              <>
+                <button
+                  disabled={isUpdatingStatus}
+                  onClick={() => handleUpdateStatus('PAID')}
+                  className="flex items-center gap-2 px-6 py-3 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-black text-[11px] uppercase tracking-widest rounded-2xl shadow-lg shadow-cyan-500/20 transition-all active:scale-95 disabled:opacity-50"
+                >
+                  {isUpdatingStatus ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />} Mark Paid
+                </button>
+                <button
+                  disabled={isUpdatingStatus}
+                  onClick={() => handleUpdateStatus('CANCELLED')}
+                  className="flex items-center gap-2 px-6 py-3 bg-rose-500/30 hover:bg-rose-500/40 text-rose-300 border border-rose-500/40 font-black text-[11px] uppercase tracking-widest rounded-2xl transition-all active:scale-95 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+              </>
+            )}
+
+            <button
+              onClick={() => { setCreatedInvoice(null); setSelectedCustomer(null); setItems([]); setCustomerSearch(''); }}
+              className="flex items-center gap-2 px-6 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-black text-[11px] uppercase tracking-widest rounded-2xl transition-all"
             >
-              New Order
-            </Button>
-            <Button
-              variant="ghost"
-              icon={ArrowLeft}
-              onClick={() => navigate('/invoices')}
-              className="text-slate-500 hover:text-white rounded-2xl"
-            >
-              Invoice List
-            </Button>
+              <Plus size={14} /> New Bill
+            </button>
           </div>
         </div>
 
-        {/* Reusable Invoice Preview */}
         <InvoicePreview invoice={createdInvoice} />
       </div>
     )
@@ -299,12 +368,11 @@ const ManualBilling = () => {
                         <button
                           key={c.id}
                           disabled={c.status === 'SUSPENDED'}
-                          onClick={() => { setSelectedCustomer(c); setShowCustomerDropdown(false); }}
-                          className={`w-full flex items-center justify-between px-6 py-4 transition border-b border-slate-800/50 last:border-0 group/item ${
-                            c.status === 'SUSPENDED'
+                          onClick={() => { setSelectedCustomer(c); setShowCustomerDropdown(false); fetchCustomerDetails(c.id); }}
+                          className={`w-full flex items-center justify-between px-6 py-4 transition border-b border-slate-800/50 last:border-0 group/item ${c.status === 'SUSPENDED'
                               ? 'bg-slate-900/40 opacity-50 cursor-not-allowed'
                               : 'hover:bg-slate-800'
-                          }`}
+                            }`}
                         >
                           <div className="text-left">
                             <div className="flex items-center gap-2">
@@ -320,11 +388,10 @@ const ManualBilling = () => {
                             <p className="text-[10px] text-slate-500 font-mono tracking-wider">{c.company || 'Individual'}</p>
                           </div>
                           <div className="text-right flex flex-col items-end">
-                            <span className={`text-[9px] font-black px-2 py-0.5 rounded-full border ${
-                              c.status === 'SUSPENDED'
+                            <span className={`text-[9px] font-black px-2 py-0.5 rounded-full border ${c.status === 'SUSPENDED'
                                 ? 'border-slate-800 text-slate-600'
                                 : c.taxId ? 'border-cyan-500/30 text-cyan-500 bg-cyan-500/5' : 'border-slate-700 text-slate-500'
-                            }`}>
+                              }`}>
                               {c.taxId ? 'GST REGISTERED' : 'REGULAR'}
                             </span>
                           </div>
@@ -481,9 +548,9 @@ const ManualBilling = () => {
           </div>
         </div>
 
-        {/* Right Column: Sticky Sidebar */}
-        <div className="space-y-8">
-          <div className="p-8 rounded-[2.5rem] bg-slate-900 border border-slate-800 shadow-2xl sticky top-8 animate-in slide-in-from-right-4 duration-500">
+        {/* Right Column: Sidebar */}
+        <div className="space-y-8 lg:col-span-1">
+          <div className="p-8 rounded-[2.5rem] bg-slate-900 border border-slate-800 shadow-2xl animate-in slide-in-from-right-4 duration-500">
             <div className="flex items-center gap-3 mb-8">
               <div className="w-10 h-10 rounded-xl bg-cyan-500/10 flex items-center justify-center text-cyan-400 shadow-inner">
                 <FileText size={20} />
@@ -501,19 +568,22 @@ const ManualBilling = () => {
                 <span className="text-slate-300 font-bold">₹{subtotal.toFixed(2)}</span>
               </div>
               <div className="flex justify-between text-sm text-slate-500">
+                <span className="font uppercase tracking-widest text-[13px]">Discount</span>
+                <span className="text-rose-400 font-bold">- ₹{discountAmount.toFixed(2)}</span>
+              </div>
+              <div className="flex justify-between text-sm text-slate-500">
                 <span className="font uppercase tracking-widest text-[13px]">Tax Charged</span>
                 <span className="text-emerald-500/80 font-bold">₹{totalTax.toFixed(2)}</span>
               </div>
 
-              <div className="flex justify-between text-slate-500">
-                <span className="text-[13px] font-bold uppercase tracking-widest mb-1">Total Payable</span>
-                <span className="text-xl font-bold text-white tracking-tighter">₹{finalTotal.toFixed(2)}</span>
+              <div className="flex justify-between border-t border-slate-800 pt-6 mt-6">
+                <span className="text-[13px] font-bold uppercase tracking-widest text-slate-500">Total Payable</span>
+                <span className="text-2xl font-black text-white tracking-tighter">₹{finalTotal.toFixed(2)}</span>
               </div>
-
 
               <Button
                 size="lg"
-                className={`w-full py-5 rounded-2xl font-black text-xs uppercase tracking-[0.2em] transition-all duration-300 ${isSubmitting || items.length === 0 || (!selectedCustomer && !customerSearch) ? 'bg-slate-800 text-slate-600' : 'bg-cyan-500 hover:bg-cyan-400 text-slate-950 shadow-[0_10px_40px_rgba(6,182,212,0.3)]'}`}
+                className={`w-full py-5 rounded-2xl font-black text-xs uppercase tracking-[0.2em] transition-all duration-300 mt-4 ${isSubmitting || items.length === 0 || (!selectedCustomer && !customerSearch) ? 'bg-slate-800 text-slate-600' : 'bg-cyan-500 hover:bg-cyan-400 text-slate-950 shadow-[0_10px_40px_rgba(6,182,212,0.3)]'}`}
                 icon={isSubmitting ? Loader2 : Save}
                 disabled={isSubmitting || items.length === 0 || (!selectedCustomer && !customerSearch)}
                 onClick={handleCreateInvoice}
@@ -522,6 +592,63 @@ const ManualBilling = () => {
               </Button>
             </div>
           </div>
+
+          {/* Approved Discounts Card */}
+          {selectedCustomer && (
+            <div className="p-8 rounded-[2.5rem] bg-slate-900/50 border border-slate-800 backdrop-blur-md shadow-xl animate-in fade-in slide-in-from-right-2 duration-400">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 rounded-xl bg-indigo-500/10 flex items-center justify-center text-indigo-400 border border-indigo-500/20">
+                  <ShoppingCart size={20} />
+                </div>
+                <h2 className="text-lg font-bold text-white font-syne">Approved Discounts</h2>
+              </div>
+              <div className="space-y-4 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
+                {billingType === 'B2B' ? (
+                  <div className="p-5 rounded-2xl bg-indigo-500/5 border border-indigo-500/20 flex flex-col gap-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-bold text-slate-200">Corporate Flat Discount</p>
+                        <p className="text-[10px] text-slate-500 font-medium uppercase mt-0.5 tracking-tight">Approved for {selectedCustomer.customer?.company || 'Organization'}</p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="number"
+                          defaultValue={selectedCustomer.customer?.agreedDiscount || 0}
+                          onBlur={(e) => handleUpdateDiscount(null, e.target.value)}
+                          className="w-14 px-2 py-1.5 bg-slate-900 border border-slate-700 rounded-xl text-center text-xs font-black text-indigo-400 focus:outline-none focus:border-indigo-500"
+                        />
+                        <span className="text-xs font-bold text-slate-500">%</span>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  selectedCustomer.configuredDiscounts && selectedCustomer.configuredDiscounts.filter(d => d.agreedDiscount > 0).length > 0 ? (
+                    selectedCustomer.configuredDiscounts.filter(d => d.agreedDiscount > 0).map(disc => (
+                      <div key={disc.productId} className="p-4 rounded-2xl bg-slate-950/30 border border-slate-800 hover:border-indigo-500/30 transition-all flex items-center justify-between group/disc">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-bold text-slate-200 truncate">{disc.name}</p>
+                          {disc.alias && <p className="text-[10px] text-slate-600 font-mono italic mt-0.5">{disc.alias}</p>}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="number"
+                            defaultValue={disc.agreedDiscount}
+                            onBlur={(e) => handleUpdateDiscount(disc.productId, e.target.value)}
+                            className="w-14 px-2 py-1.5 bg-slate-900 border border-slate-700 rounded-xl text-center text-xs font-black text-indigo-400 focus:outline-none focus:border-indigo-500 transition-colors"
+                          />
+                          <span className="text-xs font-bold text-slate-500">%</span>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-center py-10">
+                      <p className="text-[10px] font-black uppercase text-slate-700 tracking-[0.2em] leading-relaxed px-4">No active rewards set yet for B2C customer.</p>
+                    </div>
+                  )
+                )}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -529,3 +656,4 @@ const ManualBilling = () => {
 }
 
 export default ManualBilling
+

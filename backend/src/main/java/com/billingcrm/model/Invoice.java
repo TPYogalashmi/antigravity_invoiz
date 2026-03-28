@@ -4,6 +4,7 @@ import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
+import com.fasterxml.jackson.annotation.JsonCreator;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -63,10 +64,10 @@ public class Invoice {
     @Builder.Default
     private String currency = "INR";
 
-    @Enumerated(EnumType.STRING)
+    @Convert(converter = StatusConverter.class)
     @Column(nullable = false)
     @Builder.Default
-    private Status status = Status.PENDING;
+    private Status status = Status.UNPAID;
 
     private LocalDate issueDate;
     private LocalDate dueDate;
@@ -89,6 +90,30 @@ public class Invoice {
     private LocalDateTime updatedAt;
 
     public enum Status {
-        PENDING, PAID, OVERDUE, CANCELLED
+        UNPAID, PAID, OVERDUE, CANCELLED;
+
+        @JsonCreator
+        public static Status fromString(String value) {
+            if (value == null) return null;
+            if ("PENDING".equalsIgnoreCase(value)) return UNPAID;
+            try {
+                return Status.valueOf(value.toUpperCase());
+            } catch (IllegalArgumentException e) {
+                return UNPAID;
+            }
+        }
+    }
+
+    @Converter(autoApply = true)
+    public static class StatusConverter implements AttributeConverter<Status, String> {
+        @Override
+        public String convertToDatabaseColumn(Status attribute) {
+            return attribute == null ? null : attribute.name();
+        }
+
+        @Override
+        public Status convertToEntityAttribute(String dbData) {
+            return Status.fromString(dbData);
+        }
     }
 }

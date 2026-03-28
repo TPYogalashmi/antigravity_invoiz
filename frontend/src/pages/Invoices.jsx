@@ -18,7 +18,7 @@ const STATUS_CONFIG = {
     icon: CheckCircle2,
     className: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20 shadow-[0_0_15px_-5px_theme(colors.emerald.500)]'
   },
-  PENDING: {
+  UNPAID: {
     label: 'Unpaid',
     icon: Clock,
     className: 'bg-amber-500/10 text-amber-400 border-amber-500/20 shadow-[0_0_15px_-5px_theme(colors.amber.500)]'
@@ -60,7 +60,11 @@ export default function Invoices() {
   const [isStatusModalOpen, setIsStatusModalOpen] = useState(false)
   const [newStatus, setNewStatus] = useState('')
 
-  const fetchInvoices = useCallback(async (search = '') => {
+  const [currentPage, setCurrentPage] = useState(0)
+  const [totalPages, setTotalPages] = useState(0)
+  const [totalElements, setTotalElements] = useState(0)
+
+  const fetchInvoices = useCallback(async (search = '', page = 0) => {
     setIsLoading(true);
 
     const formatLocal = (dateObj) => {
@@ -111,13 +115,15 @@ export default function Invoices() {
           startDate: startDate || undefined,
           endDate: endDate || undefined,
           minAmount: minAmount || undefined,
-          size: 50
+          page,
+          size: 5
         }
       });
 
-      const content = response.data?.data?.content || [];
-      setInvoices(content);
-      setTotalInvoices(response.data?.data?.totalElements || content.length);
+      const data = response.data?.data;
+      setInvoices(data?.content || []);
+      setTotalPages(data?.totalPages || 0);
+      setTotalElements(data?.totalElements || 0);
     } catch (err) {
       console.error('Failed to fetch invoices:', err);
       toast.error('Could not load invoices');
@@ -128,10 +134,15 @@ export default function Invoices() {
 
   useEffect(() => {
     const delay = setTimeout(() => {
-      fetchInvoices(searchTerm)
+      fetchInvoices(searchTerm, currentPage)
     }, 400)
     return () => clearTimeout(delay)
-  }, [searchTerm, statusFilter, typeFilter, timeBucket, minAmount, fetchInvoices])
+  }, [searchTerm, statusFilter, typeFilter, timeBucket, minAmount, currentPage, fetchInvoices])
+
+  // Reset page when filters change
+  useEffect(() => {
+    setCurrentPage(0)
+  }, [searchTerm, statusFilter, typeFilter, timeBucket, minAmount])
 
   const handleUpdateStatus = async (invoiceId, status) => {
     if (!status) return;
@@ -162,7 +173,7 @@ export default function Invoices() {
 
   const getStatusOptions = (currentStatus) => {
     switch (currentStatus) {
-      case 'PENDING':
+      case 'UNPAID':
         return [
           { value: 'PAID', label: 'Mark as Paid', icon: CheckCircle2, color: 'text-emerald-400' },
           { value: 'OVERDUE', label: 'Mark as Overdue', icon: AlertCircle, color: 'text-rose-400' },
@@ -240,7 +251,7 @@ export default function Invoices() {
             </div>
             <input
               type="text"
-              placeholder="Search ID, Customer..."
+              placeholder="Search by Ph.no or name"
               className="w-full h-full pl-12 pr-4 py-3.5 rounded-2xl bg-slate-900/50 border border-slate-800 text-slate-200 placeholder-slate-600 focus:outline-none focus:border-cyan-500/40"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
@@ -253,9 +264,9 @@ export default function Invoices() {
               onChange={(e) => setStatusFilter(e.target.value)}
               className="w-full h-full px-5 py-3.5 rounded-2xl bg-slate-900/50 border border-slate-800 text-slate-300 text-sm focus:outline-none focus:border-cyan-500/40 appearance-none cursor-pointer pr-10"
             >
-              <option value="">All Statuses</option>
+              <option value="">Payment Status</option>
               <option value="PAID">Paid Only</option>
-              <option value="PENDING">Unpaid Only</option>
+              <option value="UNPAID">Unpaid Only</option>
               <option value="OVERDUE">Overdue Only</option>
               <option value="CANCELLED">Cancelled</option>
             </select>
@@ -285,7 +296,7 @@ export default function Invoices() {
               onChange={(e) => setMinAmount(e.target.value ? Number(e.target.value) : null)}
               className="w-full h-full px-5 py-3.5 rounded-2xl bg-slate-900/50 border border-slate-800 text-slate-300 text-sm focus:outline-none focus:border-cyan-500/40 appearance-none cursor-pointer pr-10"
             >
-              <option value="">All Values</option>
+              <option value="">Bill Amount</option>
               <option value="1000">&gt; ₹1,000</option>
               <option value="5000">&gt; ₹5,000</option>
               <option value="10000">&gt; ₹10,000</option>
@@ -406,6 +417,54 @@ export default function Invoices() {
         </div>
       </div>
 
+      {/* Pagination Footer */}
+      {!isLoading && totalPages > 1 && (
+        <div className="flex items-center justify-between px-2 pt-6 border-t border-slate-800/10">
+          <div className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+            Showing <span className="text-slate-300">{(currentPage * 5) + 1}</span> to <span className="text-slate-300">{Math.min((currentPage + 1) * 5, totalElements)}</span> of <span className="text-slate-300">{totalElements}</span> bills
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setCurrentPage(prev => Math.max(0, prev - 1))}
+              disabled={currentPage === 0}
+              className="px-4 py-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition text-xs font-bold"
+            >
+              Prev
+            </button>
+            <div className="flex gap-1 items-center px-1">
+              {(() => {
+                const maxVisible = 3;
+                let startPage = Math.max(0, Math.min(currentPage, totalPages - maxVisible));
+                const endPage = Math.min(totalPages, startPage + maxVisible);
+
+                return [...Array(endPage - startPage)].map((_, i) => {
+                  const pageNum = startPage + i;
+                  return (
+                    <button
+                      key={pageNum}
+                      onClick={() => setCurrentPage(pageNum)}
+                      className={`w-8 h-8 rounded-lg text-xs font-bold transition-all ${currentPage === pageNum
+                        ? 'bg-cyan-500 text-slate-950 shadow-lg'
+                        : 'text-slate-500 hover:text-white'
+                        }`}
+                    >
+                      {pageNum + 1}
+                    </button>
+                  );
+                });
+              })()}
+            </div>
+            <button
+              onClick={() => setCurrentPage(prev => Math.min(totalPages - 1, prev + 1))}
+              disabled={currentPage === totalPages - 1}
+              className="px-4 py-2 rounded-xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed transition text-xs font-bold"
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* --- INVOICE VIEW MODAL --- */}
       {isViewModalOpen && selectedInvoice && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
@@ -477,8 +536,8 @@ export default function Invoices() {
                           key={opt.value}
                           onClick={() => setNewStatus(opt.value)}
                           className={`flex items-center gap-4 p-4 rounded-2xl border transition-all text-left ${newStatus === opt.value
-                              ? 'bg-cyan-500/10 border-cyan-500/50 text-white'
-                              : 'bg-slate-800/40 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-300'
+                            ? 'bg-cyan-500/10 border-cyan-500/50 text-white'
+                            : 'bg-slate-800/40 border-slate-800 text-slate-400 hover:border-slate-700 hover:text-slate-300'
                             }`}
                         >
                           <div className={`p-2 rounded-xl bg-slate-900 ${opt.color}`}>
@@ -513,8 +572,8 @@ export default function Invoices() {
                       disabled={!newStatus}
                       onClick={() => handleUpdateStatus(statusInvoice.id, newStatus)}
                       className={`w-full py-4 rounded-2xl font-bold flex items-center justify-center gap-2 transition shadow-xl ${newStatus
-                          ? 'bg-cyan-500 hover:bg-cyan-400 text-slate-950 shadow-cyan-500/20'
-                          : 'bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700'
+                        ? 'bg-cyan-500 hover:bg-cyan-400 text-slate-950 shadow-cyan-500/20'
+                        : 'bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700'
                         }`}
                     >
                       <Save size={18} />

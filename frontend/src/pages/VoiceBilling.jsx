@@ -17,7 +17,13 @@ import {
   Save,
   X,
   RotateCcw,
-  Edit3
+  Edit3,
+  ChevronLeft,
+  ChevronRight,
+  BadgeCheck,
+  Clock,
+  MoreVertical,
+  CheckCircle
 } from 'lucide-react'
 import Button from '../components/ui/Button'
 import { aiClient, backendClient } from '../api/axios'
@@ -83,6 +89,10 @@ export default function VoiceBilling({ onSuccess }) {
   const [dbProducts, setDbProducts] = useState([])
   const [oosVoiceItems, setOosVoiceItems] = useState([])
   const [unrecognizedVoiceItems, setUnrecognizedVoiceItems] = useState([])
+  const [customerPage, setCustomerPage] = useState(0)
+  const [customerTotalPages, setCustomerTotalPages] = useState(0)
+  const [productPage, setProductPage] = useState(0)
+  const [productTotalPages, setProductTotalPages] = useState(0)
 
   const mediaRecorderRef = useRef(null)
   const chunksRef = useRef([])
@@ -121,16 +131,20 @@ export default function VoiceBilling({ onSuccess }) {
     }
   }
 
-  const fetchCustomerSuggestions = useCallback(async (query) => {
+  const fetchCustomerSuggestions = useCallback(async (query, page = 0) => {
     if (!query || query.length < 1) {
       setCustomerSuggestions([])
+      setCustomerTotalPages(0)
       return
     }
     try {
       const resp = await backendClient.get('/customers', {
-        params: { search: query, size: 5, hasTaxId: billingType === 'B2B' }
+        params: { search: query, page, size: 5, hasTaxId: billingType === 'B2B' }
       })
-      setCustomerSuggestions(resp.data?.data?.content || [])
+      const data = resp.data?.data;
+      setCustomerSuggestions(data?.content || [])
+      setCustomerTotalPages(data?.totalPages || 0)
+      setCustomerPage(page)
       setShowCustomerDropdown(true)
     } catch (err) {
       console.error('Customer fetch failed', err)
@@ -148,16 +162,48 @@ export default function VoiceBilling({ onSuccess }) {
     }
   }, [])
 
-  const fetchProductSuggestions = useCallback(async (query) => {
+  const fetchCustomerDetails = useCallback(async (customerId) => {
+    try {
+      const resp = await backendClient.get(`/customers/${customerId}/profile`)
+      setSelectedCustomer(prev => ({ ...prev, ...resp.data?.data }))
+    } catch (err) {
+      console.error('Failed to fetch customer profile', err)
+    }
+  }, [])
+
+  const handleUpdateDiscount = async (productId, val) => {
+    if (!selectedCustomer) return
+    try {
+      if (productId) {
+        await backendClient.patch(`/customers/${selectedCustomer.id}/specific-discounts/${productId}`, null, {
+          params: { discount: parseFloat(val) || 0 }
+        })
+      } else {
+        await backendClient.patch(`/customers/${selectedCustomer.id}/overall-discount`, null, {
+          params: { discount: parseFloat(val) || 0 }
+        })
+      }
+      fetchCustomerDetails(selectedCustomer.id)
+      toast.success('Reward percentage updated')
+    } catch (err) {
+      toast.error('Failed to update discount')
+    }
+  }
+
+  const fetchProductSuggestions = useCallback(async (query, page = 0) => {
     if (!query || query.length < 1) {
       setProductSuggestions([])
+      setProductTotalPages(0)
       return
     }
     try {
       const resp = await backendClient.get('/products', {
-        params: { search: query, size: 5, onlyName: true }
+        params: { search: query, page, size: 5, onlyName: true }
       })
-      setProductSuggestions(resp.data?.data?.content || [])
+      const data = resp.data?.data;
+      setProductSuggestions(data?.content || [])
+      setProductTotalPages(data?.totalPages || 0)
+      setProductPage(page)
       setShowProductDropdown(true)
     } catch (err) {
       console.error('Product fetch failed', err)
@@ -221,9 +267,9 @@ export default function VoiceBilling({ onSuccess }) {
   }
 
   async function detectIntent(text) {
-    const res = await aiClient.post('/nlp/intent', { 
+    const res = await aiClient.post('/nlp/intent', {
       transcript: text,
-      inventory: dbProducts.map(p => p.name || p.rawName) 
+      inventory: dbProducts.map(p => p.name || p.rawName)
     })
     if (!res.data?.intent) throw new Error('NLP service returned an invalid response.')
     return res.data
@@ -274,7 +320,7 @@ export default function VoiceBilling({ onSuccess }) {
       setRecState(STATE.ERROR)
     }
   }
-  
+
   const handleUpdateStatus = async (status) => {
     if (!invoice) return;
     try {
@@ -326,7 +372,7 @@ export default function VoiceBilling({ onSuccess }) {
           const nlpData = await detectIntent(text)
           setNlpResult(nlpData)
           setShowNlpSection(true)
-          
+
           const nlpItems = nlpData.items || [];
           const normalItems = [];
           const oosItemsFound = [];
@@ -335,17 +381,17 @@ export default function VoiceBilling({ onSuccess }) {
           nlpItems.forEach(item => {
             const itemName = item.name || item.rawName;
             const dbProd = dbProducts.find(p => p.name?.toLowerCase() === itemName?.toLowerCase() || p.alias?.toLowerCase() === itemName?.toLowerCase());
-            
+
             if (!dbProd) {
               unrecItemsFound.push({ ...item, name: itemName });
             } else if (dbProd.status === 'OUT_OF_STOCK') {
               oosItemsFound.push({ ...item, name: dbProd.name });
             } else {
-              normalItems.push({ 
-                ...item, 
+              normalItems.push({
+                ...item,
                 name: dbProd.name,
                 unit: item.unit || dbProd.unit || 'PCS',
-                id: Math.random() 
+                id: Math.random()
               });
             }
           });
@@ -436,12 +482,11 @@ export default function VoiceBilling({ onSuccess }) {
                   <button
                     key={c.id}
                     disabled={c.status === 'SUSPENDED'}
-                    onClick={() => { setSelectedCustomer(c); setShowCustomerDropdown(false); }}
-                    className={`w-full text-left px-5 py-3 border-b border-slate-800/50 last:border-0 transition-all ${
-                      c.status === 'SUSPENDED' 
-                        ? 'opacity-60 cursor-not-allowed bg-slate-950/30' 
-                        : 'hover:bg-slate-800'
-                    }`}
+                    onClick={() => { setSelectedCustomer(c); setShowCustomerDropdown(false); fetchCustomerDetails(c.id); }}
+                    className={`w-full text-left px-5 py-3 border-b border-slate-800/50 last:border-0 transition-all ${c.status === 'SUSPENDED'
+                      ? 'opacity-60 cursor-not-allowed bg-slate-950/30'
+                      : 'hover:bg-slate-800'
+                      }`}
                   >
                     <div className="flex justify-between items-center">
                       <div>
@@ -462,6 +507,28 @@ export default function VoiceBilling({ onSuccess }) {
                     </div>
                   </button>
                 ))}
+
+                {customerTotalPages > 1 && (
+                  <div className="px-5 py-2.5 bg-slate-800/50 border-t border-slate-800 flex items-center justify-between">
+                    <button
+                      disabled={customerPage === 0}
+                      onClick={(e) => { e.stopPropagation(); fetchCustomerSuggestions(customerSearch, customerPage - 1); }}
+                      className="p-1 px-2 rounded-lg hover:bg-slate-700 disabled:opacity-30 text-slate-400 transition flex items-center gap-1 text-[10px] font-bold uppercase"
+                    >
+                      <ChevronLeft size={14} /> Prev
+                    </button>
+                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                      {customerPage + 1} / {customerTotalPages}
+                    </span>
+                    <button
+                      disabled={customerPage >= customerTotalPages - 1}
+                      onClick={(e) => { e.stopPropagation(); fetchCustomerSuggestions(customerSearch, customerPage + 1); }}
+                      className="p-1 px-2 rounded-lg hover:bg-slate-700 disabled:opacity-30 text-slate-400 transition flex items-center gap-1 text-[10px] font-bold uppercase"
+                    >
+                      Next <ChevronRight size={14} />
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -502,13 +569,13 @@ export default function VoiceBilling({ onSuccess }) {
       {oosVoiceItems.length > 0 && (
         <div className="fixed bottom-8 right-8 z-[100] w-80 p-5 rounded-[2rem] bg-slate-950/90 border border-rose-500/30 backdrop-blur-xl shadow-2xl animate-in slide-in-from-bottom-5 fade-in duration-500 group overflow-hidden">
           <div className="absolute top-0 left-0 w-full h-1 bg-rose-500/20" />
-          <button 
+          <button
             onClick={() => setOosVoiceItems([])}
             className="absolute top-4 right-4 w-7 h-7 rounded-full bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-500 hover:text-white hover:border-slate-700 transition-all shadow-lg"
           >
             <X size={14} />
           </button>
-          
+
           <div className="flex items-center gap-3 mb-4">
             <div className="w-8 h-8 rounded-xl bg-rose-500/10 flex items-center justify-center text-rose-500 border border-rose-500/20 shadow-inner">
               <AlertCircle size={18} />
@@ -518,7 +585,7 @@ export default function VoiceBilling({ onSuccess }) {
               <h3 className="text-xs font-bold text-white tracking-tight">Spoken Items Out of Stock</h3>
             </div>
           </div>
-          
+
           <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto custom-scrollbar pr-2 mb-2">
             {oosVoiceItems.map((item, idx) => (
               <div key={idx} className="px-3 py-1.5 rounded-lg bg-rose-500/10 border border-rose-500/10 text-[10px] font-bold text-rose-400 flex items-center gap-2">
@@ -537,13 +604,13 @@ export default function VoiceBilling({ onSuccess }) {
       {unrecognizedVoiceItems.length > 0 && (
         <div className="fixed bottom-8 right-8 z-[110] w-80 p-5 rounded-[2rem] bg-slate-950/90 border border-amber-500/30 backdrop-blur-xl shadow-2xl animate-in slide-in-from-bottom-5 fade-in duration-500 group overflow-hidden">
           <div className="absolute top-0 left-0 w-full h-2 bg-amber-500/20" />
-          <button 
+          <button
             onClick={() => setUnrecognizedVoiceItems([])}
             className="absolute top-4 right-4 w-7 h-7 rounded-full bg-slate-900 border border-slate-800 flex items-center justify-center text-slate-500 hover:text-white hover:border-slate-700 transition-all shadow-lg"
           >
             <X size={14} />
           </button>
-          
+
           <div className="flex items-center gap-3 mb-4">
             <div className="w-8 h-8 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-500 border border-amber-500/20 shadow-inner">
               <Search size={18} />
@@ -553,7 +620,7 @@ export default function VoiceBilling({ onSuccess }) {
               <h3 className="text-xs font-bold text-white tracking-tight">Products Not Found</h3>
             </div>
           </div>
-          
+
           <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto custom-scrollbar pr-2 mb-2">
             {unrecognizedVoiceItems.map((item, idx) => (
               <div key={idx} className="px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/10 text-[10px] font-bold text-amber-400 flex items-center gap-2">
@@ -569,58 +636,116 @@ export default function VoiceBilling({ onSuccess }) {
       )}
 
       {selectedCustomer && (
-        <div className="animate-in fade-in slide-in-from-top-2 duration-500">
-          <div className="flex items-center gap-2 mb-3">
-            <div className="w-1 h-4 bg-cyan-500 rounded-full" />
-            <p className="text-[10px] font-black uppercase text-slate-500 tracking-widest">
-              {frequentProducts.length > 0 ? "Smart Suggestions (Top Purchases)" : "Suggestions"}
-            </p>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 animate-in fade-in slide-in-from-top-2 duration-500">
+          {/* Smart Suggestions */}
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <div className="w-1 h-4 bg-cyan-500 rounded-full" />
+              <p className="text-[10px] font-black uppercase text-slate-500 tracking-widest">
+                {frequentProducts.length > 0 ? "Smart Suggestions" : "Suggestions"}
+              </p>
+            </div>
+
+            {frequentProducts.length > 0 ? (
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                {frequentProducts.map((p) => {
+                  const isOutOfStock = p.status === 'OUT_OF_STOCK';
+                  return (
+                    <button
+                      key={p.id}
+                      disabled={isOutOfStock}
+                      onClick={() => {
+                        if (recState === STATE.EDITING) {
+                          const qty = p.suggestedQuantity > 0 ? p.suggestedQuantity : 1;
+                          const newItem = {
+                            name: p.name,
+                            quantity: qty,
+                            unit: p.unit || 'PCS',
+                            id: Math.random()
+                          };
+                          setEditingData({ ...editingData, items: [...editingData.items, newItem] });
+                          toast.success(`Added ${p.name}`);
+                        } else {
+                          toast.info(`Speak to add ${p.name}`);
+                        }
+                      }}
+                      className={`p-3 rounded-2xl border transition-all text-left group ${isOutOfStock
+                        ? 'bg-rose-500/5 border-rose-500/20 cursor-not-allowed opacity-60'
+                        : 'bg-slate-900/40 border-slate-800/50 hover:border-cyan-500/30 hover:bg-slate-800'
+                        }`}
+                    >
+                      <div className="flex justify-between items-start gap-1">
+                        <p className={`text-[11px] font-bold truncate ${isOutOfStock ? 'text-rose-400' : 'text-slate-300 group-hover:text-cyan-400'}`}>
+                          {p.name}
+                        </p>
+                        {isOutOfStock && <span className="text-[7px] font-black text-rose-500 uppercase shrink-0">OOS</span>}
+                      </div>
+                      <p className="text-[9px] text-slate-600 mt-1 uppercase font-black truncate">{p.alias || ' '}</p>
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="p-4 rounded-2xl bg-slate-900/20 border border-dashed border-slate-800 text-center">
+                <p className="text-[11px] text-slate-600 italic">No historical data found.</p>
+              </div>
+            )}
           </div>
 
-          {frequentProducts.length > 0 ? (
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3">
-              {frequentProducts.map((p) => {
-                const isOutOfStock = p.status === 'OUT_OF_STOCK';
-                return (
-                  <button
-                    key={p.id}
-                    disabled={isOutOfStock}
-                    onClick={() => {
-                      if (recState === STATE.EDITING) {
-                        const qty = p.suggestedQuantity > 0 ? p.suggestedQuantity : 1;
-                        const newItem = { 
-                          name: p.name, 
-                          quantity: qty, 
-                          unit: p.unit || 'PCS',
-                          id: Math.random() 
-                        };
-                        setEditingData({ ...editingData, items: [...editingData.items, newItem] });
-                        toast.success(`Added ${p.name} with regular amount ${qty}`);
-                      } else {
-                        toast.info(`Speak to add ${p.name}`);
-                      }
-                    }}
-                    className={`p-3 rounded-2xl border transition-all text-left group ${isOutOfStock
-                      ? 'bg-rose-500/5 border-rose-500/20 cursor-not-allowed opacity-60'
-                      : 'bg-slate-900/40 border-slate-800/50 hover:border-cyan-500/30 hover:bg-slate-800'
-                      }`}
-                  >
-                    <div className="flex justify-between items-start gap-1">
-                      <p className={`text-[11px] font-bold truncate ${isOutOfStock ? 'text-rose-400' : 'text-slate-300 group-hover:text-cyan-400'}`}>
-                        {p.name}
-                      </p>
-                      {isOutOfStock && <span className="text-[7px] font-black text-rose-500 uppercase shrink-0">OOS</span>}
+          {/* Approved Discounts */}
+          <div className="space-y-3 overflow-hidden">
+            <div className="flex items-center gap-2">
+              <div className="w-1 h-4 bg-indigo-500 rounded-full" />
+              <p className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Approved Discounts</p>
+            </div>
+
+            <div className="flex gap-3 overflow-x-auto pb-4 custom-scrollbar snap-x">
+              {billingType === 'B2B' ? (
+                <div className="min-w-[280px] p-1 rounded-2xl bg-indigo-500/5 border border-indigo-500/20 flex flex-col justify-center snap-start">
+                  <div className="flex items-center justify-between">
+                    <p className="text-xs font-bold text-slate-300 px-2">Corporate Flat Discount</p>
+                    <div className="flex items-center gap-2 bg-slate-800/60 border border-slate-700 rounded-lg px-2 py-1 focus-within:border-indigo-500 transition">
+
+                      <input
+                        type="number"
+                        defaultValue={selectedCustomer.customer?.agreedDiscount || 0}
+                        onBlur={(e) => handleUpdateDiscount(null, e.target.value)}
+                        className="w-12 bg-transparent text-indigo-400 font-semibold outline-none text-right placeholder:text-slate-500"
+                      />
+
+                      <span className="text-xs font-semibold text-slate-400">%</span>
+
                     </div>
-                    <p className="text-[9px] text-slate-600 mt-1 uppercase font-black truncate">{p.alias || ' '}</p>
-                  </button>
-                );
-              })}
+                  </div>
+                  <p className="text-[9px] text-slate-500 uppercase tracking-tight font-medium px-2">Standard approved for {selectedCustomer.customer?.company || 'B2B Customer'}</p>
+                </div>
+              ) : (
+                selectedCustomer.configuredDiscounts && selectedCustomer.configuredDiscounts.filter(d => d.agreedDiscount > 0).length > 0 ? (
+                  selectedCustomer.configuredDiscounts.filter(d => d.agreedDiscount > 0).map(disc => (
+                    <div key={disc.productId} className="min-w-[200px] p-3 rounded-2xl bg-slate-900/60 border border-slate-800/80 snap-start group/disc hover:border-indigo-500/30 transition-all">
+                      <div className="flex items-center justify-between gap-2 overflow-hidden">
+                        <p className="text-[11px] font-bold text-slate-200 truncate flex-1">{disc.name}</p>
+                        <div className="flex items-center gap-1 shrink-0">
+                          <input
+                            type="number"
+                            defaultValue={disc.agreedDiscount}
+                            onBlur={(e) => handleUpdateDiscount(disc.productId, e.target.value)}
+                            className="w-10 bg-slate-950/50 border border-slate-800 rounded-lg text-[10px] text-center font-black text-indigo-400 focus:outline-none focus:border-indigo-500"
+                          />
+                          <span className="text-[10px] font-bold text-slate-600">%</span>
+                        </div>
+                      </div>
+                      {disc.alias && <p className="text-[9px] text-slate-600 font-mono italic mt-1.5 truncate">{disc.alias}</p>}
+                    </div>
+                  ))
+                ) : (
+                  <div className="flex-1 p-4 rounded-2xl bg-slate-950/40 border border-dashed border-slate-800 text-center">
+                    <p className="text-[10px] font-bold text-slate-700 uppercase tracking-widest">No active rewards set yet for this customer</p>
+                  </div>
+                )
+              )}
             </div>
-          ) : (
-            <div className="p-4 rounded-2xl bg-slate-900/20 border border-dashed border-slate-800 text-center">
-              <p className="text-[11px] text-slate-600 italic">No suggestions yet for this customer.</p>
-            </div>
-          )}
+          </div>
         </div>
       )}
 
@@ -681,9 +806,8 @@ export default function VoiceBilling({ onSuccess }) {
                               setProductSearch('');
                               setShowProductDropdown(false);
                             }}
-                            className={`w-full text-left px-5 py-3 border-b border-slate-800/50 last:border-0 flex justify-between items-center transition-all ${
-                              isOos ? 'bg-rose-500/5 opacity-60 cursor-not-allowed' : 'hover:bg-slate-800'
-                            }`}
+                            className={`w-full text-left px-5 py-3 border-b border-slate-800/50 last:border-0 flex justify-between items-center transition-all ${isOos ? 'bg-rose-500/5 opacity-60 cursor-not-allowed' : 'hover:bg-slate-800'
+                              }`}
                           >
                             <div>
                               <p className={`text-sm font-bold ${isOos ? 'text-rose-400' : 'text-white'}`}>{p.name}</p>
@@ -695,6 +819,28 @@ export default function VoiceBilling({ onSuccess }) {
                           </button>
                         );
                       })}
+
+                      {productTotalPages > 1 && (
+                        <div className="flex items-center justify-between px-4 py-2 border-t border-slate-800 bg-slate-950/20">
+                          <button
+                            disabled={productPage === 0}
+                            onClick={(e) => { e.stopPropagation(); fetchProductSuggestions(productSearch, productPage - 1); }}
+                            className="flex items-center gap-1 px-2 py-1.5 rounded-xl bg-slate-800 text-slate-400 text-[10px] font-bold uppercase transition hover:bg-slate-700 disabled:opacity-30"
+                          >
+                            <ChevronLeft size={14} /> Prev
+                          </button>
+                          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                            {productPage + 1} / {productTotalPages}
+                          </span>
+                          <button
+                            disabled={productPage >= productTotalPages - 1}
+                            onClick={(e) => { e.stopPropagation(); fetchProductSuggestions(productSearch, productPage + 1); }}
+                            className="flex items-center gap-1 px-2 py-1.5 rounded-xl bg-slate-800 text-slate-400 text-[10px] font-bold uppercase transition hover:bg-slate-700 disabled:opacity-30"
+                          >
+                            Next <ChevronRight size={14} />
+                          </button>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -707,24 +853,24 @@ export default function VoiceBilling({ onSuccess }) {
                 {editingData.items.map((it, idx) => {
                   const isDecimal = ['kg', 'g', 'mg', 'ltr', 'ml'].includes(it.unit?.toLowerCase());
                   const step = isDecimal ? 0.1 : 1;
-                  
+
                   return (
                     <div key={idx} className="flex items-center gap-3 p-3 bg-slate-950/30 border border-slate-800/50 rounded-2xl group/item hover:border-slate-700 transition-all">
                       <div className="flex-1 min-w-0">
-                        <input 
-                          className="w-full bg-transparent border-none p-0 text-sm font-bold text-white focus:outline-none" 
-                          value={it.name} 
+                        <input
+                          className="w-full bg-transparent border-none p-0 text-sm font-bold text-white focus:outline-none"
+                          value={it.name}
                           onChange={(e) => {
                             const newItems = [...editingData.items];
                             newItems[idx].name = e.target.value;
                             setEditingData({ ...editingData, items: newItems });
-                          }} 
+                          }}
                         />
                         <p className="text-[8px] font-black uppercase text-slate-600 tracking-tighter mt-0.5">{it.unit || 'PCS'}</p>
                       </div>
-                      
+
                       <div className="flex items-center gap-2 bg-slate-900 rounded-xl p-1 border border-slate-800">
-                        <button 
+                        <button
                           onClick={() => {
                             const newItems = [...editingData.items];
                             newItems[idx].quantity = Math.max(step, (parseFloat(it.quantity) || 0) - step);
@@ -734,21 +880,21 @@ export default function VoiceBilling({ onSuccess }) {
                         >
                           <Minus size={14} />
                         </button>
-                        
-                        <input 
-                          className="w-12 bg-transparent text-center text-xs font-black text-cyan-400 focus:outline-none" 
-                          type="number" 
-                          value={it.quantity} 
+
+                        <input
+                          className="w-12 bg-transparent text-center text-xs font-black text-cyan-400 focus:outline-none"
+                          type="number"
+                          value={it.quantity}
                           step={step}
                           onChange={(e) => {
                             const newItems = [...editingData.items];
                             const val = parseFloat(e.target.value) || 0;
                             newItems[idx].quantity = isDecimal ? val : Math.round(val);
                             setEditingData({ ...editingData, items: newItems });
-                          }} 
+                          }}
                         />
 
-                        <button 
+                        <button
                           onClick={() => {
                             const newItems = [...editingData.items];
                             newItems[idx].quantity = (parseFloat(it.quantity) || 0) + step;
@@ -760,7 +906,7 @@ export default function VoiceBilling({ onSuccess }) {
                         </button>
                       </div>
 
-                      <button 
+                      <button
                         onClick={() => {
                           const newItems = editingData.items.filter((_, i) => i !== idx);
                           setEditingData({ ...editingData, items: newItems });
@@ -776,14 +922,14 @@ export default function VoiceBilling({ onSuccess }) {
             </div>
 
             <div className="flex gap-3 pt-2">
-              <button 
-                onClick={handleConfirmEdit} 
+              <button
+                onClick={handleConfirmEdit}
                 className="flex-1 py-4 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-black text-xs uppercase tracking-[0.2em] rounded-2xl shadow-lg shadow-cyan-500/20 transition-all flex items-center justify-center gap-2"
               >
                 <Save size={14} /> Generate Invoice
               </button>
-              <button 
-                onClick={() => setRecState(STATE.IDLE)} 
+              <button
+                onClick={() => setRecState(STATE.IDLE)}
                 className="px-6 py-4 bg-slate-800 hover:bg-slate-700 text-slate-300 font-black text-xs uppercase tracking-[0.2em] rounded-2xl transition-all"
               >
                 Cancel
@@ -795,23 +941,23 @@ export default function VoiceBilling({ onSuccess }) {
         {invoice && (
           <div className="p-8 border-t border-slate-800 space-y-6">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center p-6 bg-slate-900/50 border border-slate-800 rounded-[2rem] gap-4">
-              <h2 className="text-xl font-black text-white font-syne uppercase">Tax Invoice Created</h2>
+              <h2 className=" font-bold text-white font-mono text-lg"> Invoice Generated</h2>
               <div className="flex flex-wrap gap-2">
                 <Button icon={Download} onClick={() => generateInvoicePDF(invoice)} className="bg-emerald-600 shadow-lg shadow-emerald-500/20">PDF</Button>
                 <Button icon={RotateCcw} onClick={handleReset} variant="ghost" className="bg-slate-800 text-slate-300 hover:text-white border border-slate-700">New Bill</Button>
                 {invoice.status !== 'PAID' && invoice.status !== 'CANCELLED' && (
                   <>
-                    <Button 
-                      icon={CheckCircle2} 
-                      onClick={() => handleUpdateStatus('PAID')} 
-                      className="bg-cyan-500 hover:bg-cyan-400 text-slate-950 shadow-lg shadow-cyan-500/20 font-bold"
+                    <Button
+                      icon={CheckCircle2}
+                      onClick={() => handleUpdateStatus('PAID')}
+                      className="bg-cyan-500/90 hover:bg-cyan-400 text-slate-950 font-semibold"
                     >
                       Mark Paid
                     </Button>
-                    <Button 
-                      icon={XCircle} 
-                      onClick={() => handleUpdateStatus('CANCELLED')} 
-                      className="bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 border border-rose-500/20 font-bold"
+                    <Button
+                      icon={XCircle}
+                      onClick={() => handleUpdateStatus('CANCELLED')}
+                      className="bg-rose-500/30 hover:bg-rose-500/40 text-rose-300 border border-rose-500/40 font-semibold"
                     >
                       Cancel
                     </Button>
@@ -834,7 +980,7 @@ export default function VoiceBilling({ onSuccess }) {
 
       <div className="p-4 rounded-xl bg-slate-900 border border-slate-800 flex gap-3">
         <AlertCircle size={16} className="text-cyan-400 mt-1" />
-        <p className="text-xs text-slate-400">Example: "Create invoice for Arun, 2 Laptops and 1 Mobile Phone"</p>
+        <p className="text-xs text-slate-400">Example: "Create invoice for Arun, 2 Pineapple, 1 Onion or select the customer in serach bar and then speak 2 mango, 10 kiwi. Don't use conjunctions like 'and' etc."</p>
       </div>
     </div>
   )
