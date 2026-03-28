@@ -11,4 +11,5 @@ public interface ProductService {
     ProductResponse findById(Long id);
     Page<ProductResponse> findAll(String search, String status, boolean onlyName, Pageable pageable);
     void delete(Long id);
+    java.util.List<ProductResponse> findFrequentByCustomer(Long customerId, int limit);
 }

@@ -29,6 +29,7 @@ public interface CustomerRepository extends JpaRepository<Customer, Long> {
                         WHERE (:search IS NULL OR
                                LOWER(c.name)    LIKE :search OR
                                LOWER(c.email)   LIKE :search OR
+                               LOWER(COALESCE(c.phone, '')) LIKE :search OR
                                LOWER(COALESCE(c.company, '')) LIKE :search)
                         AND (:status IS NULL OR c.status = :status)
                         AND (:hasTaxId IS NULL OR (

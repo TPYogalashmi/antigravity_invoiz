@@ -19,6 +19,7 @@ public class ProductResponse {
     private String sku;
     private String unit;
     private String status;
+    private Double suggestedQuantity;
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
 }

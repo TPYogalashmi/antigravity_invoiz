@@ -11,9 +11,12 @@ import com.billingcrm.service.ProductService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import java.util.List;
+import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -73,9 +76,8 @@ public class ProductServiceImpl implements ProductService {
                 : "%" + search.toLowerCase() + "%";
 
         return productRepository.findByFilters(
-                searchParam,
+                search,
                 statusEnum,
-                onlyName,
                 pageable).map(productMapper::toResponse);
     }
 
@@ -84,6 +86,22 @@ public class ProductServiceImpl implements ProductService {
         Product product = findProductById(id);
         productRepository.delete(product);
         log.info("Deleted product id={}", id);
+    }
+
+    @Override
+    @Transactional(readOnly = true)
+    public List<ProductResponse> findFrequentByCustomer(Long customerId, int limit) {
+        log.info("Fetching frequent products for customerId={} with limit={}", customerId, limit);
+        return productRepository.findTopProductsWithAvgQtyByCustomer(customerId, PageRequest.of(0, limit))
+                .stream()
+                .map(row -> {
+                    com.billingcrm.model.Product p = (com.billingcrm.model.Product) row[0];
+                    Double avgQty = (Double) row[1];
+                    ProductResponse resp = productMapper.toResponse(p);
+                    resp.setSuggestedQuantity(avgQty);
+                    return resp;
+                })
+                .collect(Collectors.toList());
     }
 
     private Product findProductById(Long id) {

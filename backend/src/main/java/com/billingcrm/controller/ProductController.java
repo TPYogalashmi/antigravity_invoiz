@@ -64,4 +64,11 @@ public class ProductController {
         productService.delete(id);
         return ResponseEntity.ok(ApiResponse.success("Product deleted", null));
     }
+
+    @GetMapping("/frequent")
+    public ResponseEntity<ApiResponse<java.util.List<ProductResponse>>> findFrequent(
+            @RequestParam Long customerId,
+            @RequestParam(defaultValue = "5") int limit) {
+        return ResponseEntity.ok(ApiResponse.success(productService.findFrequentByCustomer(customerId, limit)));
+    }
 }

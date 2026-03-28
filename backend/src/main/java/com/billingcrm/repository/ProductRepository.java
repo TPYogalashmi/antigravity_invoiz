@@ -13,33 +13,36 @@ import java.util.List;
 @Repository
 public interface ProductRepository extends JpaRepository<Product, Long> {
 
-        boolean existsBySku(String sku);
+    @Query("SELECT p FROM Product p WHERE " +
+            "(:search IS NULL OR LOWER(p.name) LIKE LOWER(CONCAT('%', :search, '%')) OR LOWER(p.alias) LIKE LOWER(CONCAT('%', :search, '%'))) AND " +
+            "(:status IS NULL OR p.status = :status)")
+    Page<Product> findAll(@Param("search") String search,
+                    @Param("status") Product.Status status,
+                    Pageable pageable);
 
-        /** Exact case-insensitive name match */
-        List<Product> findByNameIgnoreCaseAndStatus(String name, Product.Status status);
+    @Query("SELECT p FROM Product p WHERE " +
+            "(:search IS NULL OR LOWER(p.name) LIKE LOWER(CONCAT('%', :search, '%')) OR LOWER(p.alias) LIKE LOWER(CONCAT('%', :search, '%'))) AND " +
+            "(:status IS NULL OR p.status = :status)")
+    Page<Product> findByFilters(
+                    @Param("search") String search,
+                    @Param("status") Product.Status status,
+                    Pageable pageable);
 
-        /** Exact case-insensitive alias match */
-        List<Product> findByAliasIgnoreCaseAndStatus(String alias, Product.Status status);
+    boolean existsBySku(String sku);
 
-        /** Substring / contains match — used for fuzzy pre-filtering */
-        List<Product> findByNameContainingIgnoreCaseAndStatus(String name, Product.Status status);
+    List<Product> findByNameIgnoreCaseAndStatus(String name, Product.Status status);
 
-        /** Return ALL active product names for in-memory fuzzy scoring */
-        @Query("SELECT p FROM Product p WHERE p.status = 'AVAILABLE'")
-        List<Product> findAllActive();
+    List<Product> findByAliasIgnoreCaseAndStatus(String alias, Product.Status status);
 
-        @Query("""
-                        SELECT p FROM Product p
-                        WHERE (:search IS NULL OR
-                               LOWER(p.name)  LIKE :search OR
-                               LOWER(p.alias) LIKE :search OR
-                               (:onlyName = false AND LOWER(p.description) LIKE :search) OR
-                               (:onlyName = false AND LOWER(p.sku) LIKE :search))
-                        AND (:status IS NULL OR p.status = :status)
-                        """)
-        Page<Product> findByFilters(
-                        @Param("search") String search,
-                        @Param("status") Product.Status status,
-                        @Param("onlyName") boolean onlyName,
-                        Pageable pageable);
+    List<Product> findByNameContainingIgnoreCaseAndStatus(String name, Product.Status status);
+
+    @Query("""
+            SELECT p, AVG(ii.quantity) as avgQty FROM Product p
+            JOIN InvoiceItem ii ON ii.product.id = p.id
+            JOIN Invoice i ON ii.invoice.id = i.id
+            WHERE i.customer.id = :customerId
+            GROUP BY p.id
+            ORDER BY COUNT(DISTINCT i.id) DESC
+            """)
+    List<Object[]> findTopProductsWithAvgQtyByCustomer(@Param("customerId") Long customerId, Pageable pageable);
 }
