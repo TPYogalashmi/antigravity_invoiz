@@ -29,7 +29,7 @@ public class Invoice {
     @JoinColumn(name = "user_id")
     private User user;
 
-    @Column(nullable = false, length = 30)
+    @Column(nullable = false, length = 50)
     private String invoiceNumber;
 
     @ManyToOne(fetch = FetchType.LAZY)

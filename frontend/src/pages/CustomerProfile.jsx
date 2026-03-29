@@ -115,9 +115,10 @@ export default function CustomerProfile() {
   if (isLoading) return <div className="min-h-[60vh] flex items-center justify-center"><Loader2 size={40} className="text-cyan-500 animate-spin" /></div>;
   if (!profile) return <div className="text-center py-20 text-slate-500">Customer profile not found.</div>;
 
-  const { totalOrders, totalSpend, avgSpend, lastVisit, visitFrequency, frequentItems, recentTransactions } = profile;
-  const unpaidBillsOnly = recentTransactions.filter(tx => tx.status === 'UNPAID');
-  const overdueBillsOnly = recentTransactions.filter(tx => tx.status === 'OVERDUE');
+  const { totalOrders, totalSpend, avgSpend, lastVisit, visitFrequency, frequentItems, recentTransactions, pendingTransactions } = profile;
+  const pending = pendingTransactions || [];
+  const unpaidBillsOnly = pending.filter(tx => tx.status === 'UNPAID');
+  const overdueBillsOnly = pending.filter(tx => tx.status === 'OVERDUE');
 
   const isWalkIn = customer?.phone === '1111111111';
 
@@ -545,7 +546,11 @@ export default function CustomerProfile() {
                         Paid
                       </button>
                       <button
-                        onClick={() => handleStatusChange(bill.id, 'CANCELLED', bill.invoiceNumber)}
+                        onClick={() => {
+                          if (window.confirm(`Are you sure you want to cancel ${bill.invoiceNumber}? This action cannot be undone.`)) {
+                            handleStatusChange(bill.id, 'CANCELLED', bill.invoiceNumber);
+                          }
+                        }}
                         className="py-1.5 rounded-lg bg-slate-800 text-slate-400 text-[10px] font-bold border border-slate-700 hover:bg-rose-500/10 hover:text-rose-400 hover:border-rose-500/20 transition-all uppercase tracking-tighter"
                       >
                         Cancel
@@ -594,12 +599,24 @@ export default function CustomerProfile() {
                       </div>
                     </div>
 
-                    <button
-                      onClick={() => handleStatusChange(bill.id, 'PAID', bill.invoiceNumber)}
-                      className="w-full py-2.5 rounded-xl bg-slate-800 text-slate-300 text-[11px] font-bold border border-slate-700 hover:bg-slate-700 hover:text-white transition-all font-syne uppercase tracking-wider"
-                    >
-                      Mark as Paid
-                    </button>
+                    <div className="grid grid-cols-2 gap-2 mt-1">
+                      <button
+                        onClick={() => handleStatusChange(bill.id, 'PAID', bill.invoiceNumber)}
+                        className="py-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 text-[10px] font-bold border border-emerald-500/20 hover:bg-emerald-500 hover:text-slate-950 transition-all uppercase tracking-tighter"
+                      >
+                        Paid
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (window.confirm(`Are you sure you want to cancel ${bill.invoiceNumber}? This action cannot be undone.`)) {
+                            handleStatusChange(bill.id, 'CANCELLED', bill.invoiceNumber);
+                          }
+                        }}
+                        className="py-1.5 rounded-lg bg-slate-800 text-slate-400 text-[10px] font-bold border border-slate-700 hover:bg-rose-500/10 hover:text-rose-400 hover:border-rose-500/20 transition-all uppercase tracking-tighter"
+                      >
+                        Cancel
+                      </button>
+                    </div>
                   </div>
                 ))}
                 {overdueBillsOnly.length === 0 && (

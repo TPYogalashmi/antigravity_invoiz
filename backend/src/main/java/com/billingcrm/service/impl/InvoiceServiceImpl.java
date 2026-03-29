@@ -366,7 +366,7 @@ public class InvoiceServiceImpl implements InvoiceService {
         int next = invoiceRepository.findMaxSequenceForDate(datePrefix, userId)
                 .map(m -> m + 1)
                 .orElse(1);
-        return String.format("INV-%s-%04d", datePrefix, next);
+        return String.format("INV-%s-%d-%04d", datePrefix, userId, next);
     }
 
     // ── Private: Helpers ─────────────────────────────────────────────────

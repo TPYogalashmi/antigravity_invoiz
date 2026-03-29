@@ -34,6 +34,9 @@ public class CustomerProfileResponse {
     // Recent Transactions
     private List<InvoiceResponse> recentTransactions;
 
+    // All Unpaid/Overdue Items
+    private List<InvoiceResponse> pendingTransactions;
+
     // Recently Configured or All Individual Product Discounts
     private List<ConfiguredDiscountDTO> configuredDiscounts;
 

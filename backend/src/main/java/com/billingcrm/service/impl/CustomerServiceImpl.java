@@ -206,6 +206,10 @@ public class CustomerServiceImpl implements CustomerService {
                 .suggestions(suggestions)
                 .insights(insights)
                 .recentTransactions(recent)
+                .pendingTransactions(allInvoices.stream()
+                        .filter(i -> i.getStatus() == Invoice.Status.UNPAID || i.getStatus() == Invoice.Status.OVERDUE)
+                        .map(invoiceMapper::toResponse)
+                        .collect(Collectors.toList()))
                 .build();
     }
 

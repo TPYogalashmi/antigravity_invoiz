@@ -75,7 +75,7 @@ public interface InvoiceRepository extends JpaRepository<Invoice, Long> {
         long countOverdue(@Param("today") LocalDate today, @Param("userId") Long userId);
 
         @Query("SELECT MAX(CAST(SUBSTRING(i.invoiceNumber, LENGTH(i.invoiceNumber) - 3) AS int)) " +
-               "FROM Invoice i WHERE i.user.id = :userId AND i.invoiceNumber LIKE CONCAT('INV-', :prefix, '-%')")
+               "FROM Invoice i WHERE i.user.id = :userId AND i.invoiceNumber LIKE CONCAT('INV-', :prefix, '-', :userId, '-%')")
         Optional<Integer> findMaxSequenceForDate(@Param("prefix") String datePrefix, @Param("userId") Long userId);
 
         @Query("SELECT COALESCE(SUM(i.finalAmount),0) FROM Invoice i WHERE i.user.id = :userId AND i.issueDate = :date")
