@@ -36,8 +36,9 @@ const ManualBilling = () => {
   const [createdInvoice, setCreatedInvoice] = useState(null)
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false)
 
-  // --- Fetch Suggestions ---
   const [overrideDiscount, setOverrideDiscount] = useState(0)
+  const [activeRewardTab, setActiveRewardTab] = useState('rewards')
+  const [frequentProducts, setFrequentProducts] = useState([])
 
   const fetchCustomerDetails = useCallback(async (customerId) => {
     try {
@@ -45,6 +46,17 @@ const ManualBilling = () => {
       setSelectedCustomer(prev => ({ ...prev, ...resp.data?.data }))
     } catch (err) {
       console.error('Failed to fetch customer profile', err)
+    }
+  }, [])
+
+  const fetchFrequentProducts = useCallback(async (customerId) => {
+    try {
+      const resp = await backendClient.get('/products/frequent', {
+        params: { customerId, limit: 3 }
+      })
+      setFrequentProducts(resp.data?.data || [])
+    } catch (err) {
+      console.error('Frequent products fetch failed', err)
     }
   }, [])
 
@@ -58,8 +70,11 @@ const ManualBilling = () => {
         : (billingType === 'B2B' ? 10 : 0)
       
       setOverrideDiscount(manualDiscount)
+      fetchFrequentProducts(selectedCustomer.id || selectedCustomer.customer?.id)
+    } else {
+      setFrequentProducts([])
     }
-  }, [selectedCustomer, billingType])
+  }, [selectedCustomer, billingType, fetchFrequentProducts])
 
   const fetchCustomerSuggestions = useCallback(async (query, page = 0) => {
     if (!query || query.length < 1) {
@@ -422,9 +437,9 @@ const ManualBilling = () => {
         </button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-stretch">
         {/* Main Content Area */}
-        <div className="lg:col-span-2 space-y-8">
+        <div className="lg:col-span-2 flex flex-col gap-8">
           {/* Customer Selection Card */}
           <div className="p-8 rounded-[2.5rem] bg-slate-900/50 border border-slate-800 backdrop-blur-md relative z-30 overflow-visible shadow-xl">
             <div className="flex items-center justify-between mb-4">
@@ -553,8 +568,8 @@ const ManualBilling = () => {
           </div>
 
           {/* Product Section Card */}
-          <div className="p-8 rounded-[2.5rem] bg-slate-900/50 border border-slate-800 backdrop-blur-md shadow-xl">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+          <div className="p-8 rounded-[2.5rem] bg-slate-900/50 border border-slate-800 backdrop-blur-md shadow-xl flex-1 flex flex-col">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-10 h-full flex-1">
               <div className="space-y-6">
                 <div className="relative group">
                   <Search size={18} className="absolute left-5 top-1/2 -translate-y-1/2 text-slate-500 group-focus-within:text-cyan-400 transition" />
@@ -567,7 +582,7 @@ const ManualBilling = () => {
                   />
                 </div>
 
-                <div className="max-h-[400px] overflow-y-auto pr-2 custom-scrollbar space-y-3">
+                <div className="h-[500px] overflow-y-auto pr-2 custom-scrollbar space-y-3">
                   {productSuggestions.length > 0 ? (
                     productSuggestions.map(p => {
                       const isOutOfStock = p.status === 'OUT_OF_STOCK';
@@ -644,7 +659,7 @@ const ManualBilling = () => {
                   <h2 className="text-xl font-bold text-white font-syne tracking-tight">Added Products</h2>
                 </div>
 
-                <div className="overflow-y-auto space-y-4 pr-2 custom-scrollbar max-h-[550px]">
+                <div className="overflow-y-auto space-y-4 pr-2 custom-scrollbar h-[500px]">
                   {items.length > 0 ? (
                     items.map(it => (
                       <div key={it.id} className="bg-slate-950/50 border border-slate-800 p-5 rounded-3xl flex items-center gap-4 group/row hover:border-emerald-500/20 transition-all">
@@ -688,8 +703,8 @@ const ManualBilling = () => {
         </div>
 
         {/* Right Column: Sidebar */}
-        <div className="space-y-8 lg:col-span-1">
-          <div className="p-8 rounded-[2.5rem] bg-slate-900 border border-slate-800 shadow-2xl animate-in slide-in-from-right-4 duration-500">
+        <div className="flex flex-col gap-8 lg:col-span-1">
+          <div className="p-8 rounded-[2.5rem] bg-slate-900 border border-slate-800 shadow-2xl animate-in slide-in-from-right-4 duration-500 flex flex-col justify-between">
             <div className="flex items-center gap-3 mb-8">
               <div className="w-10 h-10 rounded-xl bg-cyan-500/10 flex items-center justify-center text-cyan-400 shadow-inner">
                 <FileText size={20} />
@@ -732,53 +747,122 @@ const ManualBilling = () => {
             </div>
           </div>
 
-          {/* Approved Discounts Card */}
+          {/* Tabbed Rewards & Suggestions Card */}
           {selectedCustomer && selectedCustomer.phone !== '1111111111' && (
-            <div className="p-6 rounded-[2.5rem] bg-slate-900/50 border border-slate-800 backdrop-blur-md shadow-xl animate-in fade-in slide-in-from-right-2 duration-400">
-              <h2 className="text-lg font-bold text-white font-syne px-2 mb-2">Approved Discounts</h2>
-              <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
-                <div className="p-5 rounded-2xl bg-indigo-500/5 border border-indigo-500/20 flex flex-col gap-3">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-sm font-bold text-slate-200">{billingType === 'B2B' ? 'Corporate Flat Discount' : 'Overall Client Discount'}</p>
-                      <p className="text-[10px] text-slate-500 font-medium uppercase mt-0.5 tracking-tight">
-                        {billingType === 'B2B' ? `Approved for ${selectedCustomer.customer?.company || 'Organization'}` : 'Applied to entire bill'}
-                      </p>
+            <div className="rounded-[2.5rem] bg-slate-900 border border-slate-800 shadow-2xl animate-in fade-in slide-in-from-right-2 duration-400 overflow-hidden flex flex-col min-h-[500px]">
+              {/* Tab Header */}
+              <div className="flex bg-slate-950/40 p-1.5 border-b border-slate-800">
+                {[
+                  { id: 'suggestions', label: 'Smart Suggestions', icon: Box },
+                  { id: 'rewards', label: 'Active Rewards', icon: CheckCircle2 }
+                ].map((tab) => (
+                  <button
+                    key={tab.id}
+                    onClick={() => setActiveRewardTab(tab.id)}
+                    className={`flex-1 flex flex-col items-center justify-center py-3 rounded-2xl transition-all gap-1.5 ${
+                      activeRewardTab === tab.id 
+                        ? 'bg-slate-800 text-cyan-400 shadow-inner border border-slate-700' 
+                        : 'text-slate-500 hover:text-slate-300'
+                    }`}
+                  >
+                    <tab.icon size={14} />
+                    <span className="text-[9px] font-black uppercase tracking-tighter">{tab.label}</span>
+                  </button>
+                ))}
+              </div>
+
+              {/* Tab Content */}
+              <div className="p-6 flex-1 overflow-y-auto custom-scrollbar">
+                {activeRewardTab === 'suggestions' && (
+                  <div className="space-y-4 animate-in fade-in slide-in-from-top-2 duration-300">
+                    <div className="flex items-center justify-between px-2">
+                       <div>
+                         <p className="text-xs font-bold text-white uppercase tracking-tighter">Frequent Purchases</p>
+                         <p className="text-[9px] text-slate-500 font-medium mt-0.5">AI items based on history</p>
+                       </div>
+                       <Box size={14} className="text-slate-700" />
                     </div>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="number"
-                        key={`overall-${overrideDiscount}`}
-                        defaultValue={overrideDiscount}
-                        onBlur={(e) => handleUpdateDiscount(null, e.target.value)}
-                        className="w-14 px-2 py-1.5 bg-slate-900 border border-slate-700 rounded-xl text-center text-xs font-black text-indigo-400 focus:outline-none focus:border-indigo-500 transition-all"
-                      />
-                      <span className="text-xs font-bold text-slate-500">%</span>
+                    
+                    <div className="grid grid-cols-1 gap-2.5">
+                      {frequentProducts.length > 0 ? (
+                        frequentProducts.map(fp => (
+                          <button
+                            key={fp.id}
+                            onClick={() => addItem(fp)}
+                            className="w-full p-4 rounded-2xl bg-slate-800/40 border border-slate-800 hover:border-cyan-500/30 hover:bg-slate-800 transition-all flex items-center justify-between group/suggest"
+                          >
+                            <div className="flex-1 text-left min-w-0">
+                               <p className="text-sm font-bold text-slate-200 group-hover/suggest:text-cyan-400 truncate">{fp.name}</p>
+                               <p className="text-[10px] text-slate-500 mt-1 uppercase font-black tracking-widest leading-none italic">{fp.alias || fp.unit || 'PCS'}</p>
+                            </div>
+                            <div className="text-right ml-4">
+                               <p className="text-xs font-black text-white italic tracking-tighter">₹{fp.price.toFixed(2)}</p>
+                               <p className="text-[9px] font-bold text-cyan-500 mt-0.5">REBUY</p>
+                            </div>
+                          </button>
+                        ))
+                      ) : (
+                        <div className="py-20 text-center opacity-30">
+                          <RotateCcw size={32} className="mx-auto text-slate-700 animate-pulse" />
+                          <p className="text-[9px] font-black uppercase mt-4 tracking-widest">No history yet</p>
+                        </div>
+                      )}
                     </div>
                   </div>
-                </div>
+                )}
 
-                {/* Specific product discounts for B2C */}
-                {billingType === 'B2C' && selectedCustomer.configuredDiscounts && selectedCustomer.configuredDiscounts.filter(d => d.agreedDiscount > 0).length > 0 && (
-                  <div className="pt-2 space-y-3">
-                    <p className="text-[10px] font-black text-slate-700 uppercase tracking-widest px-2">Product Rewards</p>
-                    {selectedCustomer.configuredDiscounts.filter(d => d.agreedDiscount > 0).map(disc => (
-                      <div key={disc.productId} className="p-4 rounded-2xl bg-slate-950/30 border border-slate-800 hover:border-indigo-500/30 transition-all flex items-center justify-between group/disc">
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-bold text-slate-200 truncate">{disc.name}</p>
-                          {disc.alias && <p className="text-[10px] text-slate-600 font-mono italic mt-0.5">{disc.alias}</p>}
+                {activeRewardTab === 'rewards' && (
+                  <div className="space-y-6 animate-in fade-in slide-in-from-top-2 duration-300">
+                     <div>
+                       <p className="text-xs font-bold text-white uppercase tracking-tighter px-2">Approved Percentages</p>
+                       <p className="text-[9px] text-slate-500 font-medium px-2 mt-0.5">Pre-negotiated client rates</p>
+                     </div>
+
+                     <div className="space-y-3">
+                        {/* Overall Discount UI */}
+                        <div className="p-5 rounded-[2rem] bg-indigo-500/5 border border-indigo-500/20 flex flex-col gap-3">
+                          <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-sm font-bold text-slate-200">{billingType === 'B2B' ? 'Corporate Flat' : 'Client Flat'}</p>
+                              <p className="text-[10px] text-slate-500 font-medium uppercase mt-0.5 tracking-tight">Applied to subtotal</p>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <input
+                                type="number"
+                                key={`overall-${overrideDiscount}`}
+                                defaultValue={overrideDiscount}
+                                onBlur={(e) => handleUpdateDiscount(null, e.target.value)}
+                                className="w-14 px-2 py-1.5 bg-slate-900 border border-slate-700 rounded-xl text-center text-xs font-black text-indigo-400 focus:outline-none focus:border-indigo-500 transition-all font-mono"
+                              />
+                              <span className="text-xs font-bold text-slate-500">%</span>
+                            </div>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="number"
-                            defaultValue={disc.agreedDiscount}
-                            onBlur={(e) => handleUpdateDiscount(disc.productId, e.target.value)}
-                            className="w-14 px-2 py-1.5 bg-slate-900 border border-slate-700 rounded-xl text-center text-xs font-black text-indigo-400 focus:outline-none focus:border-indigo-500 transition-colors"
-                          />
-                          <span className="text-xs font-bold text-slate-500">%</span>
-                        </div>
-                      </div>
-                    ))}
+
+                        {/* Specific Rewards */}
+                        {billingType === 'B2C' && selectedCustomer.configuredDiscounts && selectedCustomer.configuredDiscounts.filter(d => d.agreedDiscount > 0).length > 0 && (
+                          <div className="space-y-3 pt-2">
+                            <p className="text-[10px] font-black text-slate-700 uppercase tracking-widest px-2">Specific Product Rewards</p>
+                            {selectedCustomer.configuredDiscounts.filter(d => d.agreedDiscount > 0).map(disc => (
+                              <div key={disc.productId} className="p-4 rounded-2xl bg-slate-950/30 border border-slate-800 hover:border-indigo-500/30 transition-all flex items-center justify-between group/disc">
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-[13px] font-bold text-slate-300 truncate">{disc.name}</p>
+                                  {disc.alias && <p className="text-[9px] text-slate-600 font-mono italic mt-0.5">{disc.alias}</p>}
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <input
+                                    type="number"
+                                    defaultValue={disc.agreedDiscount}
+                                    onBlur={(e) => handleUpdateDiscount(disc.productId, e.target.value)}
+                                    className="w-12 px-2 py-1.5 bg-slate-900 border border-slate-800 rounded-xl text-center text-[11px] font-black text-indigo-400 focus:outline-none focus:border-indigo-500 transition-colors font-mono"
+                                  />
+                                  <span className="text-[11px] font-bold text-slate-500">%</span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                     </div>
                   </div>
                 )}
               </div>

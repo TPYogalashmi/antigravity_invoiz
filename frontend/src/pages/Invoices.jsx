@@ -447,7 +447,10 @@ export default function Invoices() {
             <div className="flex gap-1 items-center px-1">
               {(() => {
                 const maxVisible = 3;
-                let startPage = Math.max(0, Math.min(currentPage, totalPages - maxVisible));
+                let startPage = Math.max(0, currentPage - Math.floor(maxVisible / 2));
+                if (startPage + maxVisible > totalPages) {
+                  startPage = Math.max(0, totalPages - maxVisible);
+                }
                 const endPage = Math.min(totalPages, startPage + maxVisible);
 
                 return [...Array(endPage - startPage)].map((_, i) => {
@@ -478,32 +481,45 @@ export default function Invoices() {
         </div>
       )}
 
-      {/* --- INVOICE VIEW MODAL --- */}
+      {/* --- INVOICE VIEW MODAL (Right Side Drawer) --- */}
       {isViewModalOpen && selectedInvoice && (
-        <div className="fixed inset-0 top-16 z-[90] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-slate-950/20" onClick={() => setIsViewModalOpen(false)}></div>
+        <div className="fixed inset-0 z-[120] flex justify-end overflow-hidden">
+          {/* Backdrop */}
+          <div 
+            className="absolute inset-0 bg-slate-950/40 backdrop-blur-md animate-in fade-in duration-300" 
+            onClick={() => setIsViewModalOpen(false)}
+          ></div>
 
-          <div className="relative w-full max-w-4xl max-h-[80vh] overflow-y-auto rounded-3xl bg-slate-900 border border-slate-800 shadow-[0_20px_50px_rgba(0,0,0,0.6)] animate-in zoom-in-95 duration-200">
-            <div className="sticky top-0 z-20 flex items-center justify-between p-6 bg-slate-900 border-b border-slate-800">
-              <div className="flex items-center gap-3">
-                <FileText size={24} className="text-cyan-400" />
-                <h2 className="text-xl font-bold text-white uppercase tracking-tight">Invoice Details</h2>
+          {/* Side Drawer Content */}
+          <div className="relative w-full max-w-3xl h-full bg-slate-900 shadow-[-30px_0_100px_rgba(0,0,0,0.9)] border-l border-white/5 overflow-y-auto animate-in slide-in-from-right duration-500 ease-out rounded-l-[3rem] lg:rounded-l-[4.5rem] flex flex-col">
+            <div className="sticky top-0 z-20 flex items-center justify-between p-8 bg-slate-900 border-b border-white/5 backdrop-blur-xl bg-opacity-80">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 rounded-2xl bg-cyan-500/10 flex items-center justify-center text-cyan-400 border border-cyan-500/20">
+                  <FileText size={24} />
+                </div>
+                <div>
+                  <h2 className="text-xl font-bold text-white tracking-tight leading-none">Invoice Viewer</h2>
+                  <p className="text-[10px] text-slate-500 font-bold uppercase tracking-widest mt-1.5 font-mono">Reference: {selectedInvoice.invoiceNumber}</p>
+                </div>
               </div>
               <div className="flex items-center gap-3">
                 <button
                   onClick={() => generateInvoicePDF({ ...selectedInvoice, seller })}
-                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl transition shadow-lg shadow-emerald-500/20 text-sm font-bold flex items-center gap-2"
+                  className="px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-2xl transition shadow-lg shadow-emerald-500/20 text-xs font-black uppercase tracking-widest flex items-center gap-2"
                 >
-                  <Download size={16} /> PDF
+                  <Download size={16} /> Save PDF
                 </button>
-                <button onClick={() => setIsViewModalOpen(false)} className="p-2 rounded-xl bg-slate-800 text-slate-400 hover:text-white transition">
+                <button 
+                  onClick={() => setIsViewModalOpen(false)} 
+                  className="p-3 rounded-2xl bg-slate-800/50 text-slate-400 hover:text-white hover:bg-rose-500/20 hover:text-rose-400 transition-all border border-slate-700"
+                >
                   <X size={24} />
                 </button>
               </div>
             </div>
 
-            <div className="p-8">
-              <div className="bg-white rounded-2xl p-1 shadow-inner overflow-hidden">
+            <div className="p-8 pb-20">
+              <div className="bg-white rounded-[2rem] p-1 shadow-[0_0_60px_rgba(0,0,0,0.5)] overflow-hidden">
                 <InvoicePreview invoice={{ ...selectedInvoice, seller }} />
               </div>
             </div>

@@ -472,15 +472,30 @@ export default function Products() {
               Prev
             </button>
             <div className="flex gap-1 items-center px-1">
-              {[...Array(totalPages)].map((_, i) => (
-                <button
-                  key={i}
-                  onClick={() => setCurrentPage(i)}
-                  className={`w-8 h-8 rounded-lg text-xs font-bold transition-all ${currentPage === i ? 'bg-cyan-500 text-slate-950 shadow-lg' : 'text-slate-500 hover:text-white'}`}
-                >
-                  {i + 1}
-                </button>
-              ))}
+              {(() => {
+                const maxVisible = 3;
+                let startPage = Math.max(0, currentPage - Math.floor(maxVisible / 2));
+                if (startPage + maxVisible > totalPages) {
+                  startPage = Math.max(0, totalPages - maxVisible);
+                }
+                const endPage = Math.min(totalPages, startPage + maxVisible);
+
+                return [...Array(endPage - startPage)].map((_, i) => {
+                  const pageNum = startPage + i;
+                  return (
+                    <button
+                      key={pageNum}
+                      onClick={() => setCurrentPage(pageNum)}
+                      className={`w-8 h-8 rounded-lg text-xs font-bold transition-all ${currentPage === pageNum
+                        ? 'bg-cyan-500 text-slate-950 shadow-lg'
+                        : 'text-slate-500 hover:text-white'
+                        }`}
+                    >
+                      {pageNum + 1}
+                    </button>
+                  );
+                });
+              })()}
             </div>
             <button
               onClick={() => setCurrentPage(prev => Math.min(totalPages - 1, prev + 1))}

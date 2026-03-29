@@ -601,7 +601,10 @@ export default function Customers() {
               <div className="flex gap-1 items-center px-2">
                 {(() => {
                   const maxVisible = 3;
-                  let startPage = Math.max(0, Math.min(currentPage, totalPages - maxVisible));
+                  let startPage = Math.max(0, currentPage - Math.floor(maxVisible / 2));
+                  if (startPage + maxVisible > totalPages) {
+                    startPage = Math.max(0, totalPages - maxVisible);
+                  }
                   const endPage = Math.min(totalPages, startPage + maxVisible);
 
                   return [...Array(endPage - startPage)].map((_, i) => {
