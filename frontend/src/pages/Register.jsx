@@ -83,7 +83,7 @@ export default function Register() {
             <Zap size={20} className="text-slate-950" fill="currentColor" />
           </div>
           <div>
-            <span className="text-lg font-bold tracking-tight text-white font-syne">VoiceBill</span>
+            <span className="text-lg font-bold tracking-tight text-white font-syne">Invoiz</span>
             <span className="block text-[10px] text-slate-500 tracking-widest uppercase">CRM Pro</span>
           </div>
         </div>

@@ -9,7 +9,7 @@ import toast from 'react-hot-toast'
 import { backendClient } from '../api/axios'
 
 const schema = z.object({
-  email:    z.string().email('Enter a valid email'),
+  email: z.string().email('Enter a valid email'),
   password: z.string().min(6, 'Password must be at least 6 characters'),
 })
 
@@ -36,7 +36,7 @@ export default function Login() {
 
       // Extract token and user from response
       const { accessToken, user } = response.data.data
-      
+
       setAuth({
         token: accessToken,
         user,
@@ -72,23 +72,23 @@ export default function Login() {
             <Zap size={20} className="text-slate-950" fill="currentColor" />
           </div>
           <div>
-            <span className="text-lg font-bold tracking-tight text-white font-syne">VoiceBill</span>
+            <span className="text-lg font-bold tracking-tight text-white font-syne">Invoiz</span>
             <span className="block text-[10px] text-slate-500 tracking-widest uppercase">CRM Pro</span>
           </div>
         </div>
 
         {/* Hero text */}
         <div className="relative space-y-5">
-          <h2 className="font-syne text-4xl font-bold leading-tight text-white">
-            Voice-powered billing.<br />
-            <span className="text-cyan-400">Effortlessly smart.</span>
+          <h2 className="font-syne text-4xl font-bold text-white">
+            Voice-First Billing Engine.<br></br>
+            <span className="text-cyan-400 text-[20px]">Stop typing invoices. Start speaking them</span>
           </h2>
           <p className="text-slate-400 text-sm leading-relaxed max-w-xs">
-            Generate invoices, manage customers, and process payments — all through natural voice commands.
+            Create invoices in seconds using voice commands, while seamlessly managing customers and inventory through an intuitive interface.
           </p>
           {/* Feature pills */}
           <div className="flex flex-wrap gap-2 pt-2">
-            {['Voice to Invoice', 'AI Intent Detection', 'Smart CRM', 'Real-time Billing'].map((f) => (
+            {['Voice to Invoice', 'Product & inventory handling', 'Reports & analytics ', 'Real-time speech processing', 'Smart CRM', 'Real-time Billing'].map((f) => (
               <span key={f} className="px-3 py-1 rounded-full text-xs font-medium bg-slate-800 text-slate-300 border border-slate-700">
                 {f}
               </span>
@@ -99,9 +99,9 @@ export default function Login() {
         {/* Bottom testimonial */}
         <div className="relative p-4 rounded-xl bg-slate-800/60 border border-slate-700 backdrop-blur-sm">
           <p className="text-sm text-slate-300 italic">
-            "Reduced invoice processing time by 70% in the first month."
+            "Increased sales by 30% and reduced invoice processing time by 50% in the first month."
           </p>
-          <p className="mt-2 text-xs text-slate-500">— Sarah K., Finance Director</p>
+          <p className="mt-2 text-xs text-slate-500">— Rahul K., Reliance Retail</p>
         </div>
       </div>
 
@@ -182,13 +182,6 @@ export default function Login() {
             </button>
           </form>
 
-          {/* Demo hint */}
-          <div className="mt-6 p-3 rounded-lg bg-slate-900 border border-slate-800">
-            <p className="text-xs text-slate-500 text-center">
-              Demo: <span className="text-slate-300">admin@billingcrm.com</span> / <span className="text-slate-300">admin123</span>
-            </p>
-          </div>
-
           {/* Sign up link */}
           <div className="mt-6 text-center">
             <p className="text-sm text-slate-400">
@@ -200,6 +193,6 @@ export default function Login() {
           </div>
         </div>
       </div>
-    </div>
+    </div >
   )
 }

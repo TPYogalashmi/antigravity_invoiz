@@ -43,8 +43,8 @@ export default function CustomerProfile() {
   const visitsLast30Days = profile?.visitsLast30Days || 0;
   const b2bDiscount = visitsLast30Days < 10 ? 10 : 20;
   const b2cDefault = 0;
-  // Prioritize manual agreedDiscount if set, then B2B tiers, then B2C default
-  const currentStagedDiscount = (customer?.agreedDiscount != null && customer.agreedDiscount > 0)
+  // Prioritize manual agreedDiscount if set (even if it's 0), then B2B tiers, then B2C default
+  const currentStagedDiscount = (customer?.agreedDiscount != null)
     ? customer.agreedDiscount
     : (isB2B ? b2bDiscount : b2cDefault);
 
@@ -142,7 +142,7 @@ export default function CustomerProfile() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* Identity Card */}
           <div className="lg:col-span-1 bg-slate-900/50 border border-slate-800 rounded-[2.5rem] p-8 relative overflow-hidden shadow-xl ">
-            
+
             <div className="space-y-6">
               <div>
                 <p className="text-[10px] font-black text-slate-600 uppercase tracking-widest mb-3">Customer Identity</p>
@@ -277,7 +277,12 @@ export default function CustomerProfile() {
                     <p className="text-[13px] font-bold text-slate-500 uppercase tracking-widest mb-1.5">Member Since</p>
                     <div className=" text-[13px] flex items-center gap-2 text-slate-300 font-mono text-sm">
                       <Calendar size={16} className="text-emerald-400" />
-                      <span className="font-mono text-[16px]">{new Date(customer.createdAt).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })}</span>
+                      <span className="font-mono text-[16px]">{(() => {
+                        const d = new Date(customer.createdAt);
+                        return (!isNaN(d.getTime()) && d.getFullYear() > 1970) 
+                          ? d.toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })
+                          : '—';
+                      })()}</span>
                     </div>
                   </div>
                 </div>
@@ -388,8 +393,10 @@ export default function CustomerProfile() {
                   </div>
                   <p className="text-xs text-slate-400 leading-relaxed text-sm">
                     {isB2B
-                      ? `${profile.visitsLast30Days < 10 ? 'Initial tier (10%)' : 'Elite tier (20%)'} mapped manually to all B2B orders.`
-                      : `This is the default reward rate applied for frequently bought products. You can also set specific rates for them individual in the adjacent tab.`
+                      ? (customer?.agreedDiscount != null 
+                          ? `Custom rate of ${customer.agreedDiscount}% is prioritized for all B2B orders.`
+                          : `${profile.visitsLast30Days < 10 ? 'Initial tier (10%)' : 'Elite tier (20%)'} mapped automatically to all B2B orders.`)
+                      : `This is the default reward rate applied for frequently bought products. You can also set specific rates for them individually in the adjacent tab.`
                     }
                   </p>
                 </div>
@@ -522,7 +529,11 @@ export default function CustomerProfile() {
                       </div>
                       <div className="flex justify-between items-center text-[10px] text-slate-500 font-medium">
                         <p>Issued: {new Date(bill.issueDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}</p>
-                        <p className="text-amber-500/80">Due: {new Date(bill.dueDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}</p>
+                        <p className="text-amber-500/80">
+                          {bill.dueDate 
+                            ? `Due: ${new Date(bill.dueDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}`
+                            : 'No due date set'}
+                        </p>
                       </div>
                     </div>
 
@@ -575,7 +586,11 @@ export default function CustomerProfile() {
                       </div>
                       <div className="flex justify-between items-center text-[10px] text-slate-500 font-medium">
                         <p>Issued: {new Date(bill.issueDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}</p>
-                        <p className="text-rose-500/80">Lapsed: {new Date(bill.dueDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}</p>
+                        <p className="text-rose-500/80">
+                          {bill.dueDate 
+                            ? `Lapsed: ${new Date(bill.dueDate).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}`
+                            : 'No due date set'}
+                        </p>
                       </div>
                     </div>
 
@@ -628,7 +643,12 @@ export default function CustomerProfile() {
                 </div>
                 <div className="flex justify-between items-center text-[14px] ">
                   <span className="text-slate-500 font-bold">Last Visit</span>
-                  <span className="text-slate-300 font-mono text-[17px]">{lastVisit ? new Date(lastVisit).toLocaleDateString('en-GB') : 'Never'}</span>
+                  <span className="text-slate-300 font-mono text-[17px]">{(() => {
+                    const d = new Date(lastVisit);
+                    return (!isNaN(d.getTime()) && d.getFullYear() > 1970) 
+                      ? d.toLocaleDateString('en-GB') 
+                      : 'Never';
+                  })()}</span>
                 </div>
 
                 <div className="pt-2">
@@ -656,13 +676,18 @@ export default function CustomerProfile() {
                 <div key={tx.id} className="flex items-center justify-between p-3 rounded-xl bg-slate-950/30 border border-slate-800/50 hover:border-slate-700 transition-colors">
                   <div>
                     <p className="text-[16px] font-black text-white font-mono mb-0.5">{tx.invoiceNumber}</p>
-                    <p className="text-[14px] text-slate-500 font-bold uppercase">{new Date(tx.issueDate).toLocaleDateString('en-GB')}</p>
+                    <p className="text-[14px] text-slate-500 font-bold uppercase">{(() => {
+                      const d = new Date(tx.issueDate);
+                      return (!isNaN(d.getTime()) && d.getFullYear() > 1970) 
+                        ? d.toLocaleDateString('en-GB') 
+                        : '—';
+                    })()}</p>
                   </div>
                   <p className="text-[18px] font-bold text-indigo-400 font-mono">₹{tx.finalAmount?.toLocaleString('en-IN')}</p>
                 </div>
               ))}
               {recentTransactions.length === 0 && (
-                <p className="text-slate-600 italic text-[10px] text-center py-2">No history.</p>
+                <p className="text-slate-600 italic text-[16px] text-center py-2">No history.</p>
               )}
             </div>
           </div>

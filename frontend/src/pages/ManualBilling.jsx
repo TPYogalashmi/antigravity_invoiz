@@ -3,7 +3,7 @@ import {
   ArrowLeft, Plus, Trash2, Search, IndianRupee,
   Building2, User, Box, Save, Download, CheckCircle2,
   Loader2, Calculator, Info, FileText,
-  ChevronLeft, ChevronRight, ShoppingCart, XCircle, MoreVertical
+  ChevronLeft, ChevronRight, ShoppingCart, XCircle, MoreVertical, Calendar
 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { backendClient } from '../api/axios'
@@ -37,6 +37,8 @@ const ManualBilling = () => {
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false)
 
   // --- Fetch Suggestions ---
+  const [overrideDiscount, setOverrideDiscount] = useState(0)
+
   const fetchCustomerDetails = useCallback(async (customerId) => {
     try {
       const resp = await backendClient.get(`/customers/${customerId}/profile`)
@@ -45,6 +47,19 @@ const ManualBilling = () => {
       console.error('Failed to fetch customer profile', err)
     }
   }, [])
+
+  useEffect(() => {
+    if (selectedCustomer) {
+      // Logic: Pick specifically agreed overall discount if set (even if it's 0)
+      // Check both top level and nested customer from profile response
+      const customerData = selectedCustomer.customer || selectedCustomer;
+      const manualDiscount = customerData.agreedDiscount !== null && customerData.agreedDiscount !== undefined
+        ? customerData.agreedDiscount 
+        : (billingType === 'B2B' ? 10 : 0)
+      
+      setOverrideDiscount(manualDiscount)
+    }
+  }, [selectedCustomer, billingType])
 
   const fetchCustomerSuggestions = useCallback(async (query, page = 0) => {
     if (!query || query.length < 1) {
@@ -82,7 +97,6 @@ const ManualBilling = () => {
       const resp = await backendClient.get('/products', {
         params: {
           search: query,
-          status: 'AVAILABLE',
           size: 5,
           page,
           onlyName: true
@@ -163,16 +177,25 @@ const ManualBilling = () => {
   // Calculate dynamic discount
   let discountAmount = 0
   if (selectedCustomer) {
-    if (billingType === 'B2B') {
-      const rate = selectedCustomer.customer?.agreedDiscount || 0
-      discountAmount = (subtotal * rate) / 100
-    } else {
+    // 1. Specific Product Discounts (mostly for B2C)
+    let productDiscountTotal = 0
+    if (billingType === 'B2C') {
       items.forEach(it => {
         const config = selectedCustomer.configuredDiscounts?.find(d => d.productId === it.productId)
         if (config) {
-          discountAmount += (it.price * it.quantity * config.agreedDiscount) / 100
+          productDiscountTotal += (it.price * it.quantity * config.agreedDiscount) / 100
         }
       })
+    }
+    
+    // 2. Overall Customer Discount (Apply to remaining subtotal or specifically defined)
+    // For consistency, we'll apply it to the whole subtotal if no product-specific discount was hit on a line, 
+    // or simply apply it to the whole subtotal if it's more than 0. 
+    // Usually, users expect either/or but we'll prioritize Overall if > 0.
+    if (overrideDiscount > 0 && productDiscountTotal === 0) {
+      discountAmount = (subtotal * overrideDiscount) / 100
+    } else {
+      discountAmount = productDiscountTotal
     }
   }
 
@@ -300,69 +323,85 @@ const ManualBilling = () => {
 
   if (createdInvoice) {
     return (
-      <div className="fixed inset-0 z-50 bg-slate-950/20 flex flex-col items-center justify-start overflow-y-auto p-4 md:p-10 custom-scrollbar">
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center p-8 bg-slate-900 border border-slate-800 rounded-[2.5rem] gap-6 shadow-[0_20px_50px_rgba(0,0,0,0.6)] relative overflow-visible">
-          <div className="flex items-center gap-4">
-            <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-emerald-400 border border-emerald-500/20 shadow-inner">
-              <CheckCircle2 size={28} />
+      <div className="max-w-5xl mx-auto space-y-8 animate-in fade-in duration-500">
+        <div className="p-6 bg-slate-900 border border-slate-800 rounded-[2rem] shadow-xl relative overflow-visible">
+          <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-6">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-400 border border-emerald-500/20 shadow-inner">
+                <CheckCircle2 size={20} />
+              </div>
+              <div>
+                <h1 className="text-lg font-bold text-white font-syne">Invoice Generated</h1>
+                <p className="text-[10px] font-mono text-cyan-400 font-black uppercase tracking-widest mt-0.5 opacity-80">Ref: {createdInvoice.invoiceNumber}</p>
+              </div>
             </div>
-            <div>
-              <h1 className="text-xl font-bold text-white font-syne">Invoice Generated</h1>
-              <p className="text-[11px] font-mono text-cyan-400 font-black uppercase tracking-widest mt-0.5 opacity-80">Ref: {createdInvoice.invoiceNumber}</p>
-            </div>
-          </div>
 
-          <div className="flex flex-wrap items-center gap-3">
-            <button
-              onClick={() => generateInvoicePDF({ ...createdInvoice, seller })}
-              className="flex items-center gap-2 px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-[11px] uppercase tracking-widest rounded-2xl shadow-lg shadow-emerald-500/20 transition-all active:scale-95"
-            >
-              <Download size={14} /> PDF
-            </button>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={() => generateInvoicePDF({ ...createdInvoice, seller })}
+                className="flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white border border-emerald-500 font-bold text-[10px] uppercase tracking-widest rounded-xl transition-all active:scale-95 shadow-lg shadow-emerald-500/20"
+              >
+                <Download size={14} /> PDF
+              </button>
 
-            {createdInvoice.status !== 'PAID' && createdInvoice.status !== 'CANCELLED' && (
-              <>
-                <button
-                  disabled={isUpdatingStatus}
-                  onClick={() => handleUpdateStatus('PAID')}
-                  className="flex items-center gap-2 px-6 py-3 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-black text-[11px] uppercase tracking-widest rounded-2xl shadow-lg shadow-cyan-500/20 transition-all active:scale-95 disabled:opacity-50"
-                >
-                  {isUpdatingStatus ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />} Mark Paid
-                </button>
- 
-                <div className="relative inline-block">
-                  <input
-                    type="date"
-                    className="absolute inset-0 opacity-0 cursor-pointer pointer-events-auto"
-                    onChange={(e) => handleUpdateDueDate(e.target.value)}
-                  />
+              {createdInvoice.status !== 'PAID' && createdInvoice.status !== 'CANCELLED' && (
+                <>
                   <button
-                    className="flex items-center gap-2 px-6 py-3 bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 border border-amber-500/40 font-black text-[11px] uppercase tracking-widest rounded-2xl transition-all active:scale-95"
+                    disabled={isUpdatingStatus}
+                    onClick={() => handleUpdateStatus('PAID')}
+                    className="flex items-center gap-2 px-4 py-2 bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-[10px] uppercase tracking-widest rounded-xl shadow-lg shadow-cyan-500/10 transition-all active:scale-95 disabled:opacity-50"
                   >
-                    <Calendar size={14} /> Schedule Due
+                    {isUpdatingStatus ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle2 size={12} />} Mark Paid
                   </button>
-                </div>
- 
-                <button
-                  disabled={isUpdatingStatus}
-                  onClick={() => handleUpdateStatus('CANCELLED')}
-                  className="flex items-center gap-2 px-6 py-3 bg-rose-500/30 hover:bg-rose-500/40 text-rose-300 border border-rose-500/40 font-black text-[11px] uppercase tracking-widest rounded-2xl transition-all active:scale-95 disabled:opacity-50"
-                >
-                  Cancel
-                </button>
-              </>
-            )}
 
-            <button
-              onClick={() => { setCreatedInvoice(null); setSelectedCustomer(null); setItems([]); setCustomerSearch(''); }}
-              className="flex items-center gap-2 px-6 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-black text-[11px] uppercase tracking-widest rounded-2xl transition-all"
-            >
-              <Plus size={14} /> New Bill
-            </button>
+                  <div className="relative inline-block">
+                    <input
+                      type="date"
+                      id="invoice-due-date-picker-manual"
+                      className="sr-only"
+                      min={new Date().toISOString().split('T')[0]}
+                      onChange={(e) => handleUpdateDueDate(e.target.value)}
+                    />
+                    <button
+                      onClick={() => document.getElementById('invoice-due-date-picker-manual').showPicker()}
+                      className="flex items-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 border border-amber-400 font-bold text-[10px] uppercase tracking-widest rounded-xl transition-all active:scale-95 shadow-lg shadow-amber-500/20"
+                    >
+                      <Calendar size={14} /> Due Date
+                    </button>
+                  </div>
+
+                  <button
+                    disabled={isUpdatingStatus}
+                    onClick={() => handleUpdateStatus('CANCELLED')}
+                    className="flex items-center gap-2 px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white border border-rose-400 font-bold text-[10px] uppercase tracking-widest rounded-xl transition-all active:scale-95 disabled:opacity-50 shadow-lg shadow-rose-500/20"
+                  >
+                    Cancel
+                  </button>
+                </>
+              )}
+
+              <div className="w-px h-6 bg-slate-800 mx-1 hidden sm:block" />
+
+              <button
+                onClick={() => { setCreatedInvoice(null); setSelectedCustomer(null); setItems([]); setCustomerSearch(''); }}
+                className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white font-bold text-[10px] uppercase tracking-widest rounded-xl transition-all shadow-lg"
+              >
+                <Plus size={14} /> New
+              </button>
+
+              <button
+                onClick={() => navigate('/invoices')}
+                className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-200 border border-slate-700 font-bold text-[10px] uppercase tracking-widest rounded-xl transition-all shadow-lg"
+              >
+                <ArrowLeft size={14} /> Invoices
+              </button>
+            </div>
           </div>
         </div>
 
-        <InvoicePreview invoice={{ ...createdInvoice, seller }} />
+        <div className="bg-white rounded-[2.5rem] p-1 shadow-2xl overflow-hidden">
+          <InvoicePreview invoice={{ ...createdInvoice, seller }} />
+        </div>
       </div>
     )
   }
@@ -370,14 +409,17 @@ const ManualBilling = () => {
   return (
     <div className="max-w-7xl mx-auto space-y-10 pb-32 animate-in fade-in duration-300">
       {/* Navigation Header */}
-      <div className="flex items-center gap-4">
-        <button onClick={() => navigate('/invoices')} className="p-3 rounded-2xl bg-slate-900 border border-slate-800 text-slate-400 hover:text-white transition group">
-          <ArrowLeft size={20} className="group-hover:-translate-x-1 transition-transform" />
-        </button>
+      <div className="flex items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-white font-syne tracking-tight">Manual Billing</h1>
           <p className="text-[10px] text-slate-600 uppercase tracking-[0.2em] font-black">Standard Professional Invoice</p>
         </div>
+        <button 
+          onClick={() => navigate('/invoices')} 
+          className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white border border-slate-600 font-bold text-[10px] uppercase tracking-widest rounded-xl transition-all active:scale-95 shadow-lg"
+        >
+          <ArrowLeft size={14} /> Back to Invoices
+        </button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -472,9 +514,15 @@ const ManualBilling = () => {
                         </button>
                       ))
                     ) : (
-                      <div className="px-8 py-6 text-xs text-slate-500 italic text-center bg-slate-900">
-                        No matches found for "{customerSearch}"
-                      </div>
+                          <div className="px-8 py-10 text-center bg-slate-900 flex flex-col items-center gap-4">
+                            <p className="text-xs text-slate-500 italic">No matches found for "{customerSearch}"</p>
+                            <button
+                              onClick={() => navigate('/customers?create=true')}
+                              className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-emerald-400 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all border border-slate-700 flex items-center gap-2"
+                            >
+                              <Plus size={14} /> Create Customer
+                            </button>
+                          </div>
                     )}
 
                     {customerTotalPages > 1 && (
@@ -521,25 +569,42 @@ const ManualBilling = () => {
 
                 <div className="max-h-[400px] overflow-y-auto pr-2 custom-scrollbar space-y-3">
                   {productSuggestions.length > 0 ? (
-                    productSuggestions.map(p => (
-                      <button
-                        key={p.id}
-                        onClick={() => addItem(p)}
-                        className="w-full flex items-center justify-between p-4 bg-slate-800/30 hover:bg-slate-800 border border-slate-800/50 hover:border-cyan-500/30 rounded-3xl transition-all group/prod text-left"
-                      >
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-bold text-white group-hover/prod:text-cyan-400 transition-colors truncate">{p.name}</p>
-                          <p className="text-[10px] text-slate-500 mt-1 uppercase font-black tracking-widest">{p.unit || p.alias || 'Pcs'}</p>
-                        </div>
-                        <div className="text-right ml-4">
-                          <p className="text-sm font-black text-white italic tracking-tighter">₹{p.price.toFixed(2)}</p>
-                          <p className="text-[9px] text-cyan-500 font-bold mt-0.5">+{p.gstPercentage}% Tax</p>
-                        </div>
-                        <div className="ml-5 w-8 h-8 rounded-full bg-slate-950 flex items-center justify-center text-slate-600 group-hover/prod:bg-cyan-500 group-hover/prod:text-slate-950 transition-all shrink-0">
-                          <Plus size={16} />
-                        </div>
-                      </button>
-                    ))
+                    productSuggestions.map(p => {
+                      const isOutOfStock = p.status === 'OUT_OF_STOCK';
+                      return (
+                        <button
+                          key={p.id}
+                          disabled={isOutOfStock}
+                          onClick={() => addItem(p)}
+                          className={`w-full flex items-center justify-between p-4 border transition-all group/prod text-left rounded-3xl ${
+                            isOutOfStock 
+                              ? 'bg-rose-500/5 border-rose-500/20 cursor-not-allowed opacity-60' 
+                              : 'bg-slate-800/30 hover:bg-slate-800 border-slate-800/50 hover:border-cyan-500/30'
+                          }`}
+                        >
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <p className={`text-sm font-bold truncate transition-colors ${isOutOfStock ? 'text-rose-400' : 'text-white group-hover/prod:text-cyan-400'}`}>
+                                {p.name}
+                              </p>
+                              {isOutOfStock && (
+                                <span className="text-[8px] font-black text-rose-500 bg-rose-500/10 px-2 py-0.5 rounded-full uppercase tracking-tighter">OOS</span>
+                              )}
+                            </div>
+                            <p className="text-[10px] text-slate-500 mt-1 uppercase font-black tracking-widest">{p.unit || p.alias || 'Pcs'}</p>
+                          </div>
+                          <div className="text-right ml-4">
+                            <p className="text-sm font-black text-white italic tracking-tighter">₹{p.price.toFixed(2)}</p>
+                            <p className={`text-[9px] font-bold mt-0.5 ${isOutOfStock ? 'text-rose-500' : 'text-cyan-500'}`}>+{p.gstPercentage}% Tax</p>
+                          </div>
+                          <div className={`ml-5 w-8 h-8 rounded-full flex items-center justify-center transition-all shrink-0 ${
+                            isOutOfStock ? 'bg-rose-500/10 text-rose-500/50' : 'bg-slate-950 text-slate-600 group-hover/prod:bg-cyan-500 group-hover/prod:text-slate-950'
+                          }`}>
+                            {isOutOfStock ? <Info size={14} /> : <Plus size={16} />}
+                          </div>
+                        </button>
+                      );
+                    })
                   ) : (
                     <div className="py-20 text-center opacity-20">
                       <Box size={48} className="mx-auto text-slate-700" />
@@ -672,27 +737,32 @@ const ManualBilling = () => {
             <div className="p-6 rounded-[2.5rem] bg-slate-900/50 border border-slate-800 backdrop-blur-md shadow-xl animate-in fade-in slide-in-from-right-2 duration-400">
               <h2 className="text-lg font-bold text-white font-syne px-2 mb-2">Approved Discounts</h2>
               <div className="space-y-3 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
-                {billingType === 'B2B' ? (
-                  <div className="p-5 rounded-2xl bg-indigo-500/5 border border-indigo-500/20 flex flex-col gap-3">
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <p className="text-sm font-bold text-slate-200">Corporate Flat Discount</p>
-                        <p className="text-[10px] text-slate-500 font-medium uppercase mt-0.5 tracking-tight">Approved for {selectedCustomer.customer?.company || 'Organization'}</p>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <input
-                          type="number"
-                          defaultValue={selectedCustomer.customer?.agreedDiscount || 0}
-                          onBlur={(e) => handleUpdateDiscount(null, e.target.value)}
-                          className="w-14 px-2 py-1.5 bg-slate-900 border border-slate-700 rounded-xl text-center text-xs font-black text-indigo-400 focus:outline-none focus:border-indigo-500"
-                        />
-                        <span className="text-xs font-bold text-slate-500">%</span>
-                      </div>
+                <div className="p-5 rounded-2xl bg-indigo-500/5 border border-indigo-500/20 flex flex-col gap-3">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-bold text-slate-200">{billingType === 'B2B' ? 'Corporate Flat Discount' : 'Overall Client Discount'}</p>
+                      <p className="text-[10px] text-slate-500 font-medium uppercase mt-0.5 tracking-tight">
+                        {billingType === 'B2B' ? `Approved for ${selectedCustomer.customer?.company || 'Organization'}` : 'Applied to entire bill'}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="number"
+                        key={`overall-${overrideDiscount}`}
+                        defaultValue={overrideDiscount}
+                        onBlur={(e) => handleUpdateDiscount(null, e.target.value)}
+                        className="w-14 px-2 py-1.5 bg-slate-900 border border-slate-700 rounded-xl text-center text-xs font-black text-indigo-400 focus:outline-none focus:border-indigo-500 transition-all"
+                      />
+                      <span className="text-xs font-bold text-slate-500">%</span>
                     </div>
                   </div>
-                ) : (
-                  selectedCustomer.configuredDiscounts && selectedCustomer.configuredDiscounts.filter(d => d.agreedDiscount > 0).length > 0 ? (
-                    selectedCustomer.configuredDiscounts.filter(d => d.agreedDiscount > 0).map(disc => (
+                </div>
+
+                {/* Specific product discounts for B2C */}
+                {billingType === 'B2C' && selectedCustomer.configuredDiscounts && selectedCustomer.configuredDiscounts.filter(d => d.agreedDiscount > 0).length > 0 && (
+                  <div className="pt-2 space-y-3">
+                    <p className="text-[10px] font-black text-slate-700 uppercase tracking-widest px-2">Product Rewards</p>
+                    {selectedCustomer.configuredDiscounts.filter(d => d.agreedDiscount > 0).map(disc => (
                       <div key={disc.productId} className="p-4 rounded-2xl bg-slate-950/30 border border-slate-800 hover:border-indigo-500/30 transition-all flex items-center justify-between group/disc">
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-bold text-slate-200 truncate">{disc.name}</p>
@@ -708,12 +778,8 @@ const ManualBilling = () => {
                           <span className="text-xs font-bold text-slate-500">%</span>
                         </div>
                       </div>
-                    ))
-                  ) : (
-                    <div className="text-center py-7">
-                      <p className="text-[10px] font-black uppercase text-slate-700 tracking-[0.2em] leading-relaxed px-4">No active rewards set yet for this customer.</p>
-                    </div>
-                  )
+                    ))}
+                  </div>
                 )}
               </div>
             </div>

@@ -102,21 +102,25 @@ public class InvoiceServiceImpl implements InvoiceService {
             BigDecimal discountAmount = BigDecimal.ZERO;
 
             if (isB2B) {
-                // B2B: Flat Rate dynamic logic (10% or 20%)
-                LocalDate thirtyDaysAgo = LocalDate.now().minusDays(30);
-                long ordersLastMonth = invoiceRepository.findByUserIdAndCustomerIdOrderByIssueDateDesc(userId, customer.getId()).stream()
-                        .map(Invoice::getIssueDate)
-                        .filter(d -> d.isAfter(thirtyDaysAgo) || d.isEqual(thirtyDaysAgo))
-                        .distinct()
-                        .count();
-                
-                discountPercent = BigDecimal.valueOf(ordersLastMonth < 10 ? 10 : 20);
+                // Priority 1: Customer's specifically agreed discount (even if 0)
+                if (customer.getAgreedDiscount() != null) {
+                    discountPercent = customer.getAgreedDiscount();
+                } else {
+                    // Priority 2: Tiered dynamic logic (10% or 20%)
+                    LocalDate thirtyDaysAgo = LocalDate.now().minusDays(30);
+                    long ordersLastMonth = invoiceRepository.findByUserIdAndCustomerIdOrderByIssueDateDesc(userId, customer.getId()).stream()
+                            .map(Invoice::getIssueDate)
+                            .filter(d -> d.isAfter(thirtyDaysAgo) || d.isEqual(thirtyDaysAgo))
+                            .distinct()
+                            .count();
+                    
+                    discountPercent = BigDecimal.valueOf(ordersLastMonth < 10 ? 10 : 20);
+                }
                 discountAmount = totalAmount
                         .multiply(discountPercent)
                         .divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
             } else {
                 // B2C: Specific reward logic for top 3 purchases
-                // Fetch top 3 product IDs
                 List<Long> topProductIds = productRepository.findTopProductsWithAvgQtyByCustomer(customer.getId(), userId, org.springframework.data.domain.PageRequest.of(0, 3))
                         .stream()
                         .map(obj -> {
@@ -128,29 +132,25 @@ public class InvoiceServiceImpl implements InvoiceService {
                 for (InvoiceItem item : items) {
                     if (item.getProduct() != null && topProductIds.contains(item.getProduct().getId())) {
                         // Priority 1: Specific discount set for this customer/product
-                        // Priority 2: General Customer Agreed Discount
-                        // Priority 3: Default 5%
+                        // Priority 2: General Customer Agreed Discount (allow 0)
+                        // Priority 3: Default 0%
                         BigDecimal itemDiscountPercent = customerProductDiscountRepository
                             .findByCustomerIdAndProductId(customer.getId(), item.getProduct().getId())
                             .map(com.billingcrm.model.CustomerProductDiscount::getDiscountPercentage)
-                            .orElse(customer.getAgreedDiscount() != null && customer.getAgreedDiscount().compareTo(BigDecimal.ZERO) > 0 
+                            .orElse(customer.getAgreedDiscount() != null 
                                 ? customer.getAgreedDiscount() 
                                 : BigDecimal.ZERO);
                         
                         BigDecimal itemBase = item.getPrice().multiply(item.getQuantity());
                         BigDecimal itemDiscount = itemBase.multiply(itemDiscountPercent).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
                         discountAmount = discountAmount.add(itemDiscount);
-                        
-                        // Note: If multiple top products have different rates, 
-                        // the final 'discountPercent' shown on invoice summary might be misleading (weighted average).
-                        // For simplicity, we'll just set it to the last applied percent or keep 5% if we want to be safe.
                         discountPercent = itemDiscountPercent; 
                     }
                 }
             }
 
-            // Override if manual discount is set in request (usually for Manual Billing)
-            if (req.getDiscountPercent() != null && req.getDiscountPercent().compareTo(BigDecimal.ZERO) > 0) {
+            // Global override if manual discount is set in request (Manual Billing/Voice overriding)
+            if (req.getDiscountPercent() != null) {
                 discountPercent = req.getDiscountPercent();
                 discountAmount = totalAmount.multiply(discountPercent).divide(BigDecimal.valueOf(100), 2, RoundingMode.HALF_UP);
             }

@@ -173,13 +173,15 @@ export default function Invoices() {
   const formatDate = (dateStr) => {
     if (!dateStr) return '—'
     try {
-      return new Date(dateStr).toLocaleDateString('en-IN', {
+      const d = new Date(dateStr)
+      if (isNaN(d.getTime()) || d.getFullYear() <= 1970) return '—'
+      return d.toLocaleDateString('en-IN', {
         day: '2-digit',
         month: 'short',
         year: 'numeric'
       })
     } catch {
-      return dateStr
+      return '—'
     }
   }
 

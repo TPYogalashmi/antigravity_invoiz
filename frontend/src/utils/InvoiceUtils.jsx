@@ -9,13 +9,15 @@ import React from 'react'
 export const formatDate = (dateStr) => {
   if (!dateStr) return '—'
   try {
-    return new Date(dateStr).toLocaleDateString('en-IN', {
+    const d = new Date(dateStr)
+    if (isNaN(d.getTime()) || d.getFullYear() <= 1970) return '—'
+    return d.toLocaleDateString('en-IN', {
       day: '2-digit',
       month: 'short',
       year: 'numeric'
     })
   } catch {
-    return dateStr
+    return '—'
   }
 }
 
@@ -31,11 +33,9 @@ export const InvoicePreview = ({ invoice }) => {
     <div id="invoice-preview" className="bg-white text-slate-900 rounded-xl p-8 shadow-2xl border border-slate-200">
       {/* Row 1: Document Header (Left Aligned) */}
       <div className="mb-8">
-        {/* Status Pill */}
-        <div className="flex items-center justify-center px-6 py-2 rounded-full bg-slate-950 text-white text-[10px] font-black uppercase tracking-[0.2em] shadow-lg min-w-[100px] mb-6 w-fit">
+        <h2 className="text-center text-black text-3xl font-extrabold tracking-wider mb-6">
           Invoice
-        </div>
-
+        </h2>
         {/* Seller Info Header (Identity + Regulatory) */}
         <div className="flex justify-between items-start">
           <div className="space-y-1 text-sm font-medium text-slate-800 text-left">

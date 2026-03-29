@@ -1,5 +1,5 @@
 import { Users, Plus, Search, Mail, Phone, MapPin, MoreVertical, Trash2, Edit2, AlertCircle, Loader2 } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { useState, useEffect, useCallback } from 'react'
 import Button from '../components/ui/Button'
 import { backendClient } from '../api/axios'
@@ -121,8 +121,8 @@ function CustomerModal({ isOpen, onClose, customer, onSave }) {
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 top-16 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-slate-950/20" onClick={onClose} />
+    <div className="fixed top-16 bottom-0 right-0 lg:left-64 left-0 z-50 flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-slate-950/60" onClick={onClose} />
       <div className="relative bg-slate-900 border border-slate-800 rounded-3xl shadow-[0_20px_50px_rgba(0,0,0,0.6)] w-full max-w-[70vw] overflow-hidden animate-in fade-in zoom-in duration-200 flex flex-col max-h-[85vh]">
         <div className="px-6 py-4 border-b border-slate-800 flex items-center justify-between bg-slate-900">
           <h2 className="font-syne text-xl font-bold text-white">
@@ -327,6 +327,7 @@ function CustomerModal({ isOpen, onClose, customer, onSave }) {
 // ── Main Customers Component ──────────────────────────────────────────────────
 export default function Customers() {
   const navigate = useNavigate()
+  const { search } = useLocation()
   const [customers, setCustomers] = useState([])
   const [isLoading, setIsLoading] = useState(true)
   const [searchTerm, setSearchTerm] = useState('')
@@ -335,6 +336,15 @@ export default function Customers() {
   const [currentPage, setCurrentPage] = useState(0)
   const [totalPages, setTotalPages] = useState(0)
   const [totalElements, setTotalElements] = useState(0)
+
+  // Listen for ?create=true to open modal automatically
+  useEffect(() => {
+    const params = new URLSearchParams(search);
+    if (params.get('create') === 'true') {
+      setEditingCustomer(null);
+      setIsModalOpen(true);
+    }
+  }, [search]);
 
   const fetchCustomers = useCallback(async (search = '', page = 0) => {
     setIsLoading(true)
@@ -360,6 +370,18 @@ export default function Customers() {
     }, 500)
     return () => clearTimeout(delayDebounce)
   }, [searchTerm, currentPage, fetchCustomers])
+
+  // Handle ?create=true from Voice/Manual Billing
+  const location = useLocation();
+  useEffect(() => {
+    const queryParams = new URLSearchParams(location.search);
+    if (queryParams.get('create') === 'true') {
+      setEditingCustomer(null);
+      setIsModalOpen(true);
+      // Clean up the URL after opening
+      navigate('/customers', { replace: true });
+    }
+  }, [location, navigate]);
 
   const handleSave = async (data) => {
     // Transform empty strings to null to avoid backend validation/unique constraint issues

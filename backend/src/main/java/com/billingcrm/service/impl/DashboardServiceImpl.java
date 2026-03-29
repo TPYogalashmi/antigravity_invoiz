@@ -8,6 +8,7 @@ import com.billingcrm.repository.InvoiceRepository;
 import com.billingcrm.repository.ProductRepository;
 import com.billingcrm.service.DashboardService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,6 +24,7 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 @Transactional(readOnly = true)
 public class DashboardServiceImpl implements DashboardService {
 
@@ -80,7 +82,7 @@ public class DashboardServiceImpl implements DashboardService {
                 .ordersToday(ordersToday)
                 .ordersMonth(ordersMonth)
                 .totalUnpaidBills(invoiceRepository.countByUserIdAndStatus(userId, Invoice.Status.UNPAID))
-                .totalOverdueBills(invoiceRepository.countOverdue(today, userId))
+                .totalOverdueBills(invoiceRepository.countByUserIdAndStatus(userId, Invoice.Status.OVERDUE))
                 .revenueTrend(currentMonthTrend)
                 .previousMonthTrend(prevMonthTrend)
                 .customerStatus(DashboardStatsResponse.CustomerStatusDistribution.builder()
@@ -93,8 +95,11 @@ public class DashboardServiceImpl implements DashboardService {
     }
 
     private List<DashboardStatsResponse.DailyRevenue> getTrendWithGaps(LocalDate start, LocalDate end, Long userId) {
-        Map<LocalDate, BigDecimal> existingData = invoiceRepository.getDailyRevenueBetweenDates(start, end, userId)
-                .stream()
+        log.debug("Fetching trend data for userId={} from {} to {}", userId, start, end);
+        List<Object[]> rawData = invoiceRepository.getDailyRevenueBetweenDates(start, end, userId);
+        log.debug("Found {} data points in DB for trend", rawData.size());
+
+        Map<LocalDate, BigDecimal> existingData = rawData.stream()
                 .collect(Collectors.toMap(
                         obj -> (LocalDate) obj[0],
                         obj -> (BigDecimal) obj[1]

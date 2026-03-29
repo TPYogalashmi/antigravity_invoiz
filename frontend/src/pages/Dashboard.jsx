@@ -77,12 +77,13 @@ export default function Dashboard() {
   }
 
   // Pre-process chart data for current vs previous month
-  const chartData = (stats?.revenueTrend || []).map((day, index) => {
-    const prevDay = stats?.previousMonthTrend?.[index];
+  const chartData = (stats?.revenueTrend || []).map((day) => {
+    const currentDay = new Date(day.date).getDate();
+    const prevDay = stats?.previousMonthTrend?.find(pd => new Date(pd.date).getDate() === currentDay);
     return {
-      day: new Date(day.date).getDate(),
+      day: currentDay,
       current: day.revenue,
-      previous: prevDay ? prevDay.revenue : null,
+      previous: prevDay ? prevDay.revenue : 0,
       fullDate: new Date(day.date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })
     };
   });
@@ -201,14 +202,14 @@ export default function Dashboard() {
               <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Current Month</span>
             </div>
             <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-slate-700" />
+              <div className="w-3 h-3 rounded-full bg-blue-700" />
               <span className="text-[10px] font-bold text-slate-600 uppercase tracking-widest">Previous Month</span>
             </div>
           </div>
         </div>
 
-        <div className="h-[350px] w-full">
-          <ResponsiveContainer width="100%" height="100%">
+        <div className="h-[350px] w-full min-h-[350px]">
+          <ResponsiveContainer width="99%" height="100%" minWidth={0}>
             <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
               <defs>
                 <linearGradient id="colorCurrent" x1="0" y1="0" x2="0" y2="1">
@@ -238,7 +239,7 @@ export default function Dashboard() {
               <Area
                 type="monotone"
                 dataKey="previous"
-                stroke="#334155"
+                stroke="#1d4ed8"
                 strokeWidth={2}
                 strokeDasharray="5 5"
                 fill="transparent"
@@ -272,8 +273,8 @@ export default function Dashboard() {
             </div>
           </div>
 
-          <div className="flex-1 min-h-[220px]">
-            <ResponsiveContainer width="100%" height="100%">
+          <div className="h-[250px] w-full min-h-[250px] relative">
+            <ResponsiveContainer width="99%" height="100%" minWidth={0}>
               <PieChart>
                 <Pie
                   data={donutData}

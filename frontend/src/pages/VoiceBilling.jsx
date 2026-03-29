@@ -23,12 +23,15 @@ import {
   BadgeCheck,
   Clock,
   MoreVertical,
-  CheckCircle
+  CheckCircle,
+  Calendar,
+  ArrowLeft
 } from 'lucide-react'
 import Button from '../components/ui/Button'
 import { aiClient, backendClient } from '../api/axios'
 import toast from 'react-hot-toast'
 import { useAuthStore } from '../store/useAuthStore'
+import { useNavigate, Link } from 'react-router-dom'
 import { InvoicePreview, generateInvoicePDF } from '../utils/InvoiceUtils'
 
 // ── Recording state machine ───────────────────────────────────────────────────
@@ -71,6 +74,7 @@ function getSupportedMimeType() {
 
 export default function VoiceBilling({ onSuccess }) {
   const { user: seller } = useAuthStore()
+  const navigate = useNavigate()
   const [recState, setRecState] = useState(STATE.IDLE)
   const [transcript, setTranscript] = useState('')
   const [nlpResult, setNlpResult] = useState(null)
@@ -95,6 +99,7 @@ export default function VoiceBilling({ onSuccess }) {
   const [customerTotalPages, setCustomerTotalPages] = useState(0)
   const [productPage, setProductPage] = useState(0)
   const [productTotalPages, setProductTotalPages] = useState(0)
+  const [overrideDiscount, setOverrideDiscount] = useState(0)
 
   const mediaRecorderRef = useRef(null)
   const chunksRef = useRef([])
@@ -172,6 +177,17 @@ export default function VoiceBilling({ onSuccess }) {
       console.error('Failed to fetch customer profile', err)
     }
   }, [])
+
+  useEffect(() => {
+    if (selectedCustomer) {
+      const customerData = selectedCustomer.customer || selectedCustomer;
+      const manualDiscount = customerData.agreedDiscount !== null && customerData.agreedDiscount !== undefined
+        ? customerData.agreedDiscount 
+        : (billingType === 'B2B' ? 10 : 0)
+      
+      setOverrideDiscount(manualDiscount)
+    }
+  }, [selectedCustomer, billingType])
 
   const handleWalkInSelect = async () => {
     try {
@@ -489,9 +505,17 @@ export default function VoiceBilling({ onSuccess }) {
 
   return (
     <div className="space-y-6 font-dm w-full max-w-full">
-      <div>
-        <h1 className="font-syne text-2xl text-white">Voice Billing</h1>
-        <p className="text-sm text-slate-500 mt-0.5">Speak naturally to generate invoices instantly.</p>
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <h1 className="font-syne text-2xl text-white">Voice Billing</h1>
+          <p className="text-sm text-slate-500 mt-0.5">Speak naturally to generate invoices instantly.</p>
+        </div>
+        <button 
+          onClick={() => navigate('/invoices')} 
+          className="flex items-center gap-2 px-4 py-2 bg-slate-700 hover:bg-slate-600 text-white border border-slate-600 font-bold text-[10px] uppercase tracking-widest rounded-xl transition-all active:scale-95 shadow-lg"
+        >
+          <ArrowLeft size={14} /> Back to Invoices
+        </button>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -539,62 +563,74 @@ export default function VoiceBilling({ onSuccess }) {
               className="w-full px-6 py-3.5 rounded-2xl bg-slate-950 border border-slate-800 text-white focus:outline-none focus:border-cyan-500/50 ring-4 ring-cyan-500/0 focus:ring-cyan-500/5 transition-all text-sm font-medium"
             />
             {showCustomerDropdown && !selectedCustomer && (
-              <div className="absolute z-50 top-full mt-2 w-full bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in duration-200">
-                {customerSuggestions.map(c => (
-                  <button
-                    key={c.id}
-                    disabled={c.status === 'SUSPENDED'}
-                    onClick={() => { setSelectedCustomer(c); setShowCustomerDropdown(false); fetchCustomerDetails(c.id); }}
-                    className={`w-full text-left px-5 py-3 border-b border-slate-800/50 last:border-0 transition-all ${c.status === 'SUSPENDED'
-                      ? 'opacity-60 cursor-not-allowed bg-slate-950/30'
-                      : 'hover:bg-slate-800'
-                      }`}
-                  >
-                    <div className="flex justify-between items-center">
-                      <div>
-                        <p className={`text-sm font-bold ${c.status === 'SUSPENDED' ? 'text-slate-500' : 'text-white'}`}>{c.name || c.company}</p>
-                        <div className="flex items-center gap-2">
-                          <p className="text-[9px] text-slate-500 uppercase font-black tracking-widest">{c.taxId ? 'B2B' : 'B2C'}</p>
-                          {c.phone && (
-                            <>
-                              <span className="w-1 h-1 rounded-full bg-slate-800" />
-                              <p className="text-[9px] text-cyan-500/60 font-mono italic">{c.phone}</p>
-                            </>
-                          )}
+              <>
+                <div className="fixed inset-0 z-40 bg-black/5" onClick={() => setShowCustomerDropdown(false)} />
+                <div className="absolute z-50 top-full mt-2 w-full bg-slate-900 border border-slate-800 rounded-2xl shadow-2xl overflow-hidden animate-in fade-in duration-200">
+                  {customerSuggestions.map(c => (
+                    <button
+                      key={c.id}
+                      disabled={c.status === 'SUSPENDED'}
+                      onClick={() => { setSelectedCustomer(c); setShowCustomerDropdown(false); fetchCustomerDetails(c.id); }}
+                      className={`w-full text-left px-5 py-3 border-b border-slate-800/50 last:border-0 transition-all ${c.status === 'SUSPENDED'
+                        ? 'opacity-60 cursor-not-allowed bg-slate-950/30'
+                        : 'hover:bg-slate-800'
+                        }`}
+                    >
+                      <div className="flex justify-between items-center">
+                        <div>
+                          <p className={`text-sm font-bold ${c.status === 'SUSPENDED' ? 'text-slate-500' : 'text-white'}`}>{c.name || c.company}</p>
+                          <div className="flex items-center gap-2">
+                            <p className="text-[9px] text-slate-500 uppercase font-black tracking-widest">{c.taxId ? 'B2B' : 'B2C'}</p>
+                            {c.phone && (
+                              <>
+                                <span className="w-1 h-1 rounded-full bg-slate-800" />
+                                <p className="text-[9px] text-cyan-500/60 font-mono italic">{c.phone}</p>
+                              </>
+                            )}
+                          </div>
                         </div>
+                        {c.status === 'SUSPENDED' && (
+                          <span className="text-[8px] font-black text-rose-500 border border-rose-500/20 bg-rose-500/5 px-2 py-0.5 rounded-full uppercase tracking-wider">Suspended</span>
+                        )}
                       </div>
-                      {c.status === 'SUSPENDED' && (
-                        <span className="text-[8px] font-black text-rose-500 border border-rose-500/20 bg-rose-500/5 px-2 py-0.5 rounded-full uppercase tracking-wider">Suspended</span>
-                      )}
+                    </button>
+                  ))}
+                  {customerTotalPages > 1 && (
+                    <div className="px-5 py-2.5 bg-slate-800/50 border-t border-slate-800 flex items-center justify-between">
+                      <button
+                        disabled={customerPage === 0}
+                        onClick={(e) => { e.stopPropagation(); fetchCustomerSuggestions(customerSearch, customerPage - 1); }}
+                        className="p-1 px-2 rounded-lg hover:bg-slate-700 disabled:opacity-30 text-slate-400 transition flex items-center gap-1 text-[10px] font-bold uppercase"
+                      >
+                        <ChevronLeft size={14} /> Prev
+                      </button>
+                      <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+                        {customerPage + 1} / {customerTotalPages}
+                      </span>
+                      <button
+                        disabled={customerPage >= customerTotalPages - 1}
+                        onClick={(e) => { e.stopPropagation(); fetchCustomerSuggestions(customerSearch, customerPage + 1); }}
+                        className="p-1 px-2 rounded-lg hover:bg-slate-700 disabled:opacity-30 text-slate-400 transition flex items-center gap-1 text-[10px] font-bold uppercase"
+                      >
+                        Next <ChevronRight size={14} />
+                      </button>
                     </div>
-                  </button>
-                ))}
+                  )}
 
-                {customerTotalPages > 1 && (
-                  <div className="px-5 py-2.5 bg-slate-800/50 border-t border-slate-800 flex items-center justify-between">
-                    <button
-                      disabled={customerPage === 0}
-                      onClick={(e) => { e.stopPropagation(); fetchCustomerSuggestions(customerSearch, customerPage - 1); }}
-                      className="p-1 px-2 rounded-lg hover:bg-slate-700 disabled:opacity-30 text-slate-400 transition flex items-center gap-1 text-[10px] font-bold uppercase"
+                  <div className="px-6 py-8 text-center bg-slate-900 flex flex-col items-center gap-3">
+                    <p className="text-[10px] text-slate-600 italic">"{customerSearch}" not in history</p>
+                    <Link
+                      to="/customers?create=true"
+                      className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-emerald-400 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all border border-slate-700 flex items-center gap-2 shadow-xl active:scale-95 no-underline"
                     >
-                      <ChevronLeft size={14} /> Prev
-                    </button>
-                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">
-                      {customerPage + 1} / {customerTotalPages}
-                    </span>
-                    <button
-                      disabled={customerPage >= customerTotalPages - 1}
-                      onClick={(e) => { e.stopPropagation(); fetchCustomerSuggestions(customerSearch, customerPage + 1); }}
-                      className="p-1 px-2 rounded-lg hover:bg-slate-700 disabled:opacity-30 text-slate-400 transition flex items-center gap-1 text-[10px] font-bold uppercase"
-                    >
-                      Next <ChevronRight size={14} />
-                    </button>
+                      <Plus size={12} /> Create Customer
+                    </Link>
                   </div>
-                )}
-              </div>
+                </div>
+              </>
             )}
-          </div>
         </div>
+      </div>
 
         {/* Recording Visualizer/Status Card */}
         <div className="rounded-[2.5rem] bg-slate-900 border border-slate-800 overflow-hidden shadow-xl">
@@ -762,49 +798,50 @@ export default function VoiceBilling({ onSuccess }) {
             </div>
 
             <div className="flex gap-3 overflow-x-auto pb-4 custom-scrollbar snap-x">
-              {billingType === 'B2B' ? (
-                <div className="min-w-[280px] p-1 rounded-2xl bg-indigo-500/5 border border-indigo-500/20 flex flex-col justify-center snap-start">
-                  <div className="flex items-center justify-between">
-                    <p className="text-xs font-bold text-slate-300 px-2">Corporate Flat Discount</p>
-                    <div className="flex items-center gap-2 bg-slate-800/60 border border-slate-700 rounded-lg px-2 py-1 focus-within:border-indigo-500 transition">
-
-                      <input
-                        type="number"
-                        defaultValue={selectedCustomer.customer?.agreedDiscount || 0}
-                        onBlur={(e) => handleUpdateDiscount(null, e.target.value)}
-                        className="w-12 bg-transparent text-indigo-400 font-semibold outline-none text-right placeholder:text-slate-500"
-                      />
-
-                      <span className="text-xs font-semibold text-slate-400">%</span>
-
-                    </div>
+              <div className="p-1 rounded-2xl bg-indigo-500/5 border border-indigo-500/20 flex flex-col justify-center snap-start min-w-[280px]">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-bold text-slate-300 px-2">{billingType === 'B2B' ? 'Corporate Flat Discount' : 'Overall Client Discount'}</p>
+                  <div className="flex items-center gap-2 bg-slate-800/60 border border-slate-700 rounded-lg px-2 py-1 focus-within:border-indigo-500 transition">
+                    <input
+                      type="number"
+                      key={`overall-voice-${overrideDiscount}`}
+                      defaultValue={overrideDiscount}
+                      onBlur={(e) => handleUpdateDiscount(null, e.target.value)}
+                      className="w-12 bg-transparent text-indigo-400 font-semibold outline-none text-right placeholder:text-slate-500"
+                    />
+                    <span className="text-xs font-semibold text-slate-400">%</span>
                   </div>
-                  <p className="text-[9px] text-slate-500 uppercase tracking-tight font-medium px-2">Standard approved for {selectedCustomer.customer?.company || 'B2B Customer'}</p>
                 </div>
-              ) : (
-                selectedCustomer.configuredDiscounts && selectedCustomer.configuredDiscounts.filter(d => d.agreedDiscount > 0).length > 0 ? (
-                  selectedCustomer.configuredDiscounts.filter(d => d.agreedDiscount > 0).map(disc => (
-                    <div key={disc.productId} className="min-w-[200px] p-3 rounded-2xl bg-slate-900/60 border border-slate-800/80 snap-start group/disc hover:border-indigo-500/30 transition-all">
-                      <div className="flex items-center justify-between gap-2 overflow-hidden">
-                        <p className="text-[11px] font-bold text-slate-200 truncate flex-1">{disc.name}</p>
-                        <div className="flex items-center gap-1 shrink-0">
-                          <input
-                            type="number"
-                            defaultValue={disc.agreedDiscount}
-                            onBlur={(e) => handleUpdateDiscount(disc.productId, e.target.value)}
-                            className="w-10 bg-slate-950/50 border border-slate-800 rounded-lg text-[10px] text-center font-black text-indigo-400 focus:outline-none focus:border-indigo-500"
-                          />
-                          <span className="text-[10px] font-bold text-slate-600">%</span>
-                        </div>
+                <p className="text-[9px] text-slate-500 uppercase tracking-tight font-medium px-2">
+                  {billingType === 'B2B' ? `Approved for ${selectedCustomer.customer?.company || 'B2B Customer'}` : 'Applied to entire bill'}
+                </p>
+              </div>
+
+              {/* Product specific for B2C */}
+              {billingType === 'B2C' && selectedCustomer.configuredDiscounts && selectedCustomer.configuredDiscounts.filter(d => d.agreedDiscount > 0).length > 0 && (
+                selectedCustomer.configuredDiscounts.filter(d => d.agreedDiscount > 0).map(disc => (
+                  <div key={disc.productId} className="min-w-[200px] p-3 rounded-2xl bg-slate-900/60 border border-slate-800/80 snap-start group/disc hover:border-indigo-500/30 transition-all">
+                    <div className="flex items-center justify-between gap-2 overflow-hidden">
+                      <p className="text-[11px] font-bold text-slate-200 truncate flex-1">{disc.name}</p>
+                      <div className="flex items-center gap-1 shrink-0">
+                        <input
+                          type="number"
+                          defaultValue={disc.agreedDiscount}
+                          onBlur={(e) => handleUpdateDiscount(disc.productId, e.target.value)}
+                          className="w-10 bg-slate-950/50 border border-slate-800 rounded-lg text-[10px] text-center font-black text-indigo-400 focus:outline-none focus:border-indigo-500"
+                        />
+                        <span className="text-[10px] font-bold text-slate-600">%</span>
                       </div>
-                      {disc.alias && <p className="text-[9px] text-slate-600 font-mono italic mt-1.5 truncate">{disc.alias}</p>}
                     </div>
-                  ))
-                ) : (
-                  <div className="flex-1 p-4 rounded-2xl bg-slate-950/40 border border-dashed border-slate-800 text-center">
-                    <p className="text-[10px] font-bold text-slate-700 uppercase tracking-widest">No active rewards set yet for this customer</p>
+                    {disc.alias && <p className="text-[9px] text-slate-600 font-mono italic mt-1.5 truncate">{disc.alias}</p>}
                   </div>
-                )
+                ))
+              )}
+
+              {billingType === 'B2C' && (!selectedCustomer.configuredDiscounts || selectedCustomer.configuredDiscounts.filter(d => d.agreedDiscount > 0).length === 0) && overrideDiscount === 0 && (
+                <div className="flex-1 p-4 rounded-2xl bg-slate-950/40 border border-dashed border-slate-800 text-center min-w-[200px]">
+                  <p className="text-[10px] font-bold text-slate-700 uppercase tracking-widest">No active rewards set yet for this customer</p>
+                </div>
               )}
             </div>
           </div>
@@ -820,7 +857,7 @@ export default function VoiceBilling({ onSuccess }) {
           </div>
         </div>
 
-        {recState === STATE.EDITING && editingData && (
+        {(recState === STATE.EDITING || recState === STATE.ERROR) && editingData && (
           <div className="border-t border-slate-800 p-6 space-y-6">
             <div className="flex items-center justify-between">
               <p className="text-xs font-bold text-cyan-500 uppercase tracking-widest">Review & Edit Bill</p>
@@ -1001,18 +1038,27 @@ export default function VoiceBilling({ onSuccess }) {
         )}
 
         {invoice && (
-          <div className="p-8 border-t border-slate-800 space-y-6">
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center p-6 bg-slate-900/50 border border-slate-800 rounded-[2rem] gap-4">
-              <h2 className="text-white font-syne text-xl"> Invoice Generated</h2>
-              <div className="flex flex-wrap gap-2">
-                <Button icon={Download} onClick={() => generateInvoicePDF({ ...invoice, seller })} className="bg-emerald-600 shadow-lg shadow-emerald-500/20">PDF</Button>
-                <Button icon={RotateCcw} onClick={handleReset} variant="ghost" className="bg-slate-800 text-slate-300 hover:text-white border border-slate-700">New Bill</Button>
+          <div className="p-4 space-y-6 animate-in slide-in-from-top-4 duration-500">
+            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center p-6 bg-slate-900 border border-slate-800 rounded-[2rem] gap-4">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-cyan-500/10 flex items-center justify-center text-cyan-400">
+                  <CheckCircle2 size={20} />
+                </div>
+                <div>
+                   <h2 className="text-white font-syne text-lg">Invoice Generated</h2>
+                   <p className="text-[10px] font-mono text-cyan-400 font-black uppercase tracking-widest opacity-80">Ref: {invoice.invoiceNumber}</p>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <Button icon={Download} onClick={() => generateInvoicePDF({ ...invoice, seller })} className="bg-emerald-600 hover:bg-emerald-500 text-white border border-emerald-500 text-[10px] py-2 px-4 shadow-lg shadow-emerald-500/20">PDF</Button>
+                
                 {invoice.status !== 'PAID' && invoice.status !== 'CANCELLED' && (
                   <>
                     <Button
                       icon={CheckCircle2}
                       onClick={() => handleUpdateStatus('PAID')}
-                      className="bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-semibold"
+                      className="bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-[10px] py-2 px-4"
                     >
                       Mark Paid
                     </Button>
@@ -1020,33 +1066,62 @@ export default function VoiceBilling({ onSuccess }) {
                     <div className="relative inline-block">
                       <input
                         type="date"
-                        className="absolute inset-0 opacity-0 cursor-pointer pointer-events-auto"
+                        id="invoice-due-date-picker-voice"
+                        className="sr-only"
+                        min={new Date().toISOString().split('T')[0]}
                         onChange={(e) => handleUpdateDueDate(e.target.value)}
                       />
                       <Button
                         icon={Calendar}
-                        className="bg-amber-500/10 hover:bg-amber-500/20 text-amber-500 border border-amber-500/40 font-black text-[11px] uppercase tracking-widest rounded-2xl transition-all active:scale-95"
+                        onClick={() => document.getElementById('invoice-due-date-picker-voice').showPicker()}
+                        className="bg-amber-500 hover:bg-amber-400 text-slate-950 border border-amber-400 font-bold text-[10px] py-2 px-4 uppercase tracking-widest shadow-lg shadow-amber-500/20"
                       >
-                        Schedule Due
+                        Due Date
                       </Button>
                     </div>
  
                     <Button
                       icon={XCircle}
                       onClick={() => handleUpdateStatus('CANCELLED')}
-                      className="bg-rose-500/30 hover:bg-rose-500/40 text-rose-300 border border-rose-500/40 font-semibold"
+                      className="bg-rose-600 hover:bg-rose-500 text-white border border-rose-400 font-bold text-[10px] py-2 px-4 shadow-lg shadow-rose-500/20"
                     >
                       Cancel
                     </Button>
                   </>
                 )}
+                
+                <div className="w-px h-6 bg-slate-800 mx-1 hidden sm:block" />
+
+                <Button icon={RotateCcw} onClick={handleReset} variant="ghost" className="bg-slate-700 text-white border border-slate-600 text-[10px] py-2 px-4 shadow-lg">New Bill</Button>
+                
+                <Button icon={ArrowLeft} onClick={() => window.location.href='/invoices'} className="bg-slate-700 border border-slate-600 text-white hover:bg-slate-600 text-[10px] py-2 px-4 shadow-lg">Invoices</Button>
               </div>
             </div>
-            <InvoicePreview invoice={{ ...invoice, seller }} />
+            <div className="bg-white rounded-[2.5rem] p-1 shadow-2xl overflow-hidden">
+               <InvoicePreview invoice={{ ...invoice, seller }} />
+            </div>
           </div>
         )}
 
-        {isError && <div className="p-5 text-rose-400 text-sm border-t border-rose-900/30 font-medium">{errorMsg}</div>}
+        {recState === STATE.ERROR && isError && (
+          <div className="p-4 mx-6 mb-6 rounded-2xl bg-rose-500/5 border border-rose-500/20 flex gap-3 animate-in slide-in-from-top-2 duration-300">
+            <XCircle size={18} className="text-rose-500 shrink-0" />
+            <div className="flex-1">
+              <p className="text-[10px] font-black uppercase text-rose-500 tracking-wider">Generation Error</p>
+              <p className="text-sm text-rose-200 mt-1 font-medium">{errorMsg}</p>
+              {errorMsg.toLowerCase().includes('customer') && (
+                <button
+                  onClick={() => navigate('/customers?create=true')}
+                  className="mt-3 px-3 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-lg text-[10px] font-bold uppercase tracking-tight flex items-center gap-2 transition-all"
+                >
+                  <Plus size={12} /> Create Customer
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {isError && recState !== STATE.ERROR && <div className="p-5 text-rose-400 text-sm border-t border-rose-900/30 font-medium">{errorMsg}</div>}
 
         {(isDone || isError) && !invoice && (
           <div className="border-t border-slate-800 p-4 text-center">
